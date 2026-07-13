@@ -14,6 +14,57 @@ interface Props {
   modelos: (ModeloCelular & { marca: MarcaCelular })[]
 }
 
+// Ordena nomes de modelo de forma "natural", entendendo os números do aparelho,
+// para que a lista fique coerente mesmo quando modelos são adicionados fora de
+// ordem. Ex: 16 < 16e < 16 Pro < 16 Pro Max < 17 < 17 Pro.
+//
+// Estratégia:
+//  1) compara o primeiro NÚMERO do nome (16 antes de 17);
+//  2) em empate, usa um peso pela variante (base < "e" < Plus/+ < FE < Pro <
+//     Pro Max < Ultra < Air), que reflete a hierarquia usual das linhas;
+//  3) por fim, ordem alfabética como desempate final.
+function pesoVariante(nome: string): number {
+  const n = nome.toLowerCase()
+  if (/\bpro\s*max\b/.test(n)) return 6
+  if (/\bultra\b/.test(n)) return 7
+  if (/\bpro\b/.test(n)) return 5
+  if (/\bmax\b/.test(n)) return 6
+  if (/\bfe\b/.test(n)) return 4
+  if (/\bair\b/.test(n)) return 8
+  if (/(\+|\bplus\b)/.test(n)) return 3
+  if (/\d+\s*e\b/.test(n) || /\be\b/.test(n)) return 1 // "16e"
+  if (/\bmini\b/.test(n)) return 0
+  return 2 // modelo base (ex: "16", "S24")
+}
+
+function primeiroNumero(nome: string): number {
+  const m = nome.match(/\d+/)
+  return m ? parseInt(m[0], 10) : Number.MAX_SAFE_INTEGER
+}
+
+// Prefixo de letras antes do número (ex: "A", "S", "M", "Note", "Edge",
+// "iPhone", "Moto G"...). Agrupa as famílias antes de comparar números.
+function prefixoFamilia(nome: string): string {
+  const m = nome.match(/^([^\d]*)/)
+  return (m ? m[1] : '').trim().toLowerCase()
+}
+
+function ordenarModeloNatural(a: string, b: string): number {
+  const pa = prefixoFamilia(a)
+  const pb = prefixoFamilia(b)
+  if (pa !== pb) return pa.localeCompare(pb, 'pt-BR')
+
+  const na = primeiroNumero(a)
+  const nb = primeiroNumero(b)
+  if (na !== nb) return na - nb
+
+  const va = pesoVariante(a)
+  const vb = pesoVariante(b)
+  if (va !== vb) return va - vb
+
+  return a.localeCompare(b, 'pt-BR')
+}
+
 export function ModelosList({ marcas, modelos }: Props) {
   const [marcaSelecionada, setMarcaSelecionada] = useState(marcas[0]?.id ?? '')
   const [mostrarForm, setMostrarForm] = useState(false)
@@ -29,10 +80,15 @@ export function ModelosList({ marcas, modelos }: Props) {
     defaultValues: { marca_id: marcaSelecionada, tem_tela_curva: false },
   })
 
-  const modelosFiltrados = modelos.filter((m) => m.marca_id === marcaSelecionada)
+  const modelosFiltrados = modelos
+    .filter((m) => m.marca_id === marcaSelecionada)
+    .sort((a, b) => ordenarModeloNatural(a.nome, b.nome))
 
   async function onSubmit(data: ModeloCelularFormData) {
-    await adicionarModelo(data)
+    // Usa SEMPRE a marca da aba atualmente selecionada (não o valor interno do
+    // form, que pode estar defasado ao trocar de aba). Corrige o bug de modelo
+    // cair na marca errada.
+    await adicionarModelo({ ...data, marca_id: marcaSelecionada })
     reset({ marca_id: marcaSelecionada, tem_tela_curva: false })
     setMostrarForm(false)
   }
@@ -123,7 +179,7 @@ export function ModelosList({ marcas, modelos }: Props) {
           onSubmit={handleSubmit(onSubmit)}
           className="bg-white border border-blue-100 rounded-xl p-4 space-y-3"
         >
-          <input type="hidden" {...register('marca_id')} value={marcaSelecionada} />
+          {/* A marca é injetada no onSubmit a partir da aba selecionada */}
 
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">
