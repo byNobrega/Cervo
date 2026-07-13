@@ -38,6 +38,19 @@ function pesoVariante(nome: string): number {
 }
 
 function primeiroNumero(nome: string): number {
+  const n = nome.toLowerCase()
+
+  // Casos especiais da Apple sem número na geração:
+  // linha X (X, XS, XR, XS Max) é a geração 10, entre o 8 e o 11.
+  if (/\biphone\s+x/.test(n)) return 10
+
+  // iPhone SE: numera pela geração aproximada (ano de lançamento).
+  if (/\bse\b/.test(n)) {
+    if (/2016/.test(n)) return 6      // SE 1ª geração (época do 6s)
+    if (/2022/.test(n)) return 13     // SE 3ª geração (época do 13)
+    return 11                          // SE 2ª geração (2020, época do 11)
+  }
+
   const m = nome.match(/\d+/)
   return m ? parseInt(m[0], 10) : Number.MAX_SAFE_INTEGER
 }
@@ -45,8 +58,13 @@ function primeiroNumero(nome: string): number {
 // Prefixo de letras antes do número (ex: "A", "S", "M", "Note", "Edge",
 // "iPhone", "Moto G"...). Agrupa as famílias antes de comparar números.
 function prefixoFamilia(nome: string): string {
-  const m = nome.match(/^([^\d]*)/)
-  return (m ? m[1] : '').trim().toLowerCase()
+  let base = nome.toLowerCase()
+  // Linha X e SE da Apple: normaliza o prefixo para "iphone" para que a
+  // geração (10 do X, ano do SE) seja comparada pelo número, não pelo texto.
+  base = base.replace(/iphone\s+x[a-z ]*/, 'iphone ')
+  base = base.replace(/iphone\s+se[\s()0-9]*/, 'iphone ')
+  const m = base.match(/^([^\d]*)/)
+  return (m ? m[1] : '').trim()
 }
 
 function ordenarModeloNatural(a: string, b: string): number {
