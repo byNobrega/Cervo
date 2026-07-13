@@ -2,7 +2,28 @@
 
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/server'
-import { notificar } from '@/lib/notificacoes'
+import { notificar, buscarIdsPorCargo } from '@/lib/notificacoes'
+
+// Avisa o(s) Dono(s) que há um novo cadastro aguardando aprovação.
+// Notifica no app (sininho) e espelha no WhatsApp quando o Z-API estiver ativo.
+// Chamado logo após o signup (o usuário novo entra como 'pendente').
+export async function notificarCadastroPendente(dados: {
+  nome: string
+  cargo: string
+  unidadeNome?: string | null
+}) {
+  const admin = await createAdminClient()
+  const donos = await buscarIdsPorCargo(admin, ['dono'])
+  if (donos.length === 0) return
+
+  const cargoLabel = dados.cargo === 'gerente' ? 'gerente' : 'funcionário'
+  const ondePart = dados.unidadeNome ? ` — ${dados.unidadeNome}` : ''
+
+  await notificar(admin, donos, 'cadastro_pendente', 'Novo cadastro no Cervo', {
+    mensagem: `${dados.nome} (${cargoLabel})${ondePart} se cadastrou e aguarda aprovação.`,
+    link: '/usuarios',
+  })
+}
 
 export async function aprovarUsuario(userId: string) {
   const supabase = await createAdminClient()

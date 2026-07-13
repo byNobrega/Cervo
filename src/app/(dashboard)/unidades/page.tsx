@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Store, ChevronRight } from 'lucide-react'
 import { GerenciarUnidades } from '@/components/unidades/GerenciarUnidades'
-import { LogoUnidade, ehTopShopping } from '@/components/shared/LogoUnidade'
+import { LogoUnidade, temLogoUnidade } from '@/components/shared/LogoUnidade'
 export const dynamic = 'force-dynamic'
 
 export default async function UnidadesPage() {
@@ -43,7 +43,7 @@ export default async function UnidadesPage() {
             className="flex items-center gap-3 bg-white border border-gray-100 rounded-xl p-4 hover:border-gray-200 hover:shadow-sm transition-all"
           >
             <div className="w-10 h-10 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0 overflow-hidden">
-              {ehTopShopping(u.nome) ? (
+              {temLogoUnidade(u.nome) ? (
                 <LogoUnidade nomeUnidade={u.nome} size={40} />
               ) : (
                 <Store size={18} className="text-gray-400" />

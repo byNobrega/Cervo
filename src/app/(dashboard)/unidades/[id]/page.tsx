@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import { UnidadeDashboard } from '@/components/unidades/UnidadeDashboard'
-import { LogoUnidade, ehTopShopping } from '@/components/shared/LogoUnidade'
+import { LogoUnidade, temLogoUnidade } from '@/components/shared/LogoUnidade'
 export const dynamic = 'force-dynamic'
 
 export default async function UnidadePage({ params }: { params: { id: string } }) {
@@ -67,7 +67,7 @@ export default async function UnidadePage({ params }: { params: { id: string } }
 
       <div className="mb-6">
         <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-          {ehTopShopping(unidade.nome) ? (
+          {temLogoUnidade(unidade.nome) ? (
             <LogoUnidade nomeUnidade={unidade.nome} size={26} />
           ) : (
             '🏪'

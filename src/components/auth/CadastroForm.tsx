@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { notificarCadastroPendente } from '@/app/actions/usuarios'
 import { cadastroSchema, type CadastroFormData } from '@/lib/validations'
 import { type Unidade } from '@/types'
 import { Eye, EyeOff, Loader2, CheckCircle } from 'lucide-react'
@@ -62,6 +63,19 @@ export function CadastroForm() {
         setErro(`Erro ao criar conta: ${error.message}`)
       }
       return
+    }
+
+    // Avisa o dono (app + WhatsApp) que há um novo cadastro pendente.
+    // Não bloqueia o fluxo se falhar — o cadastro já foi criado.
+    try {
+      const unidadeNome = unidades.find((u) => u.id === data.unidade_id)?.nome ?? null
+      await notificarCadastroPendente({
+        nome: data.nome,
+        cargo: data.cargo,
+        unidadeNome,
+      })
+    } catch (e) {
+      console.error('[Cadastro] falha ao notificar o dono:', e)
     }
 
     setSucesso(true)
