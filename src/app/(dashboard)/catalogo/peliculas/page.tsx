@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { MarcaAccordion } from '@/components/catalogo/MarcaAccordion'
 import { TipoPeliculaCard } from '@/components/catalogo/TipoPeliculaCard'
+import { ordenarModeloNatural } from '@/lib/ordenarModelos'
 export const dynamic = 'force-dynamic'
 
 export default async function PeliculasPage() {
@@ -77,6 +78,7 @@ export default async function PeliculasPage() {
                     const modelosMarca = (modelos ?? [])
                       .filter((m) => (m.marca as { nome: string })?.nome === marca)
                       .map((m) => ({ id: m.id, nome: m.nome }))
+                      .sort((a, b) => ordenarModeloNatural(a.nome, b.nome))
                     return (
                       <MarcaAccordion key={marca} marca={marca} modelos={modelosMarca} />
                     )

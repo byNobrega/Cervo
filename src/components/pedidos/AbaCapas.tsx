@@ -8,6 +8,7 @@ import { Check, ChevronLeft, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SugestaoInlineForm } from './SugestaoInlineForm'
 import { SubcategoriaAccordion } from './SubcategoriaAccordion'
+import { ordenarModeloNatural } from '@/lib/ordenarModelos'
 
 interface Props {
   subcategorias: (SubcategoriaCapa & { marcas: { marca: MarcaCelular }[] })[]
@@ -105,7 +106,9 @@ function CapaSubcategoria({
   const [marcaSel, setMarcaSel] = useState<string | null>(null)
 
   const marcasDisponiveis = subcat.marcas.map((m) => m.marca).filter(Boolean)
-  const modelosFiltrados = marcaSel ? modelos.filter((m) => m.marca_id === marcaSel) : []
+  const modelosFiltrados = marcaSel
+    ? modelos.filter((m) => m.marca_id === marcaSel).sort((a, b) => ordenarModeloNatural(a.nome, b.nome))
+    : []
 
   // Etapa 1: escolher marca
   if (!marcaSel) {

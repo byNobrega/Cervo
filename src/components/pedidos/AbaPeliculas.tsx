@@ -8,6 +8,7 @@ import { Check, ChevronLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SubcategoriaAccordion } from './SubcategoriaAccordion'
 import { NovaSugestaoForm } from '@/components/sugestoes/NovaSugestaoForm'
+import { ordenarModeloNatural } from '@/lib/ordenarModelos'
 
 interface Props {
   maquina: TipoPeliculaMaquina[]
@@ -161,7 +162,9 @@ function PeliculaTradicional({
   toggleTrad: (tipo: TipoPeliculaTradicional, modelo: ModeloCelular & { marca: MarcaCelular }) => void
 }) {
   const [marcaSel, setMarcaSel] = useState<string | null>(null)
-  const modelosFiltrados = marcaSel ? modelos.filter((m) => m.marca_id === marcaSel) : []
+  const modelosFiltrados = marcaSel
+    ? modelos.filter((m) => m.marca_id === marcaSel).sort((a, b) => ordenarModeloNatural(a.nome, b.nome))
+    : []
 
   if (!marcaSel) {
     return (
