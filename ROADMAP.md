@@ -16,6 +16,20 @@ Lista de tarefas a concluir antes de colocar o Cervo online.
 ## Integrações
 
 - [ ] **5. Z-API (WhatsApp)** — adiado por enquanto; não entra no primeiro momento.
+  - [ ] **5a. Lista visual (imagem) por WhatsApp** — em vez de só texto, enviar a
+        lista de capa/película como uma IMAGEM (PNG) no formato tabela: nome do
+        modelo + foto do produto ao lado, para facilitar o reconhecimento de quem
+        separa o pedido.
+        Ex:
+        ```
+        CAPA VIDRO        [foto]
+        16                [foto]
+        17                [foto]
+        15 Pro            [foto]
+        ```
+        Depende do Z-API estar ligado. Implementação: renderizar a lista como
+        imagem no servidor (ex: @vercel/og / satori ou node-canvas), hospedar/
+        servir o PNG e enviar pelo endpoint de imagem do Z-API.
 
 ---
 
