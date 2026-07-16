@@ -1,4 +1,26 @@
 import { ImageResponse } from 'next/og'
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
+
+// Carrega a fonte do disco explicitamente. Sem isso, o @vercel/og tenta resolver
+// a fonte padrão por um caminho de arquivo que quebra no Windows quando a pasta
+// do projeto tem espaço/caracteres especiais (ERR_INVALID_URL).
+let fonteCache: Buffer | null = null
+async function carregarFonte(): Promise<Buffer> {
+  if (fonteCache) return fonteCache
+  const p = path.join(
+    process.cwd(),
+    'node_modules',
+    'next',
+    'dist',
+    'compiled',
+    '@vercel',
+    'og',
+    'noto-sans-v27-latin-regular.ttf'
+  )
+  fonteCache = await readFile(p)
+  return fonteCache
+}
 
 // Gera a imagem da lista de um tipo (ex: "Capa Vidro") no formato usado nas
 // listas de WhatsApp da loja: fundo preto, título grande à esquerda, modelos
@@ -14,6 +36,8 @@ export interface GrupoImagem {
 const LARGURA = 900
 
 export async function gerarImagemLista(grupo: GrupoImagem): Promise<ArrayBuffer> {
+  const fonte = await carregarFonte()
+
   // Altura cresce com a quantidade de linhas (título + modelos + espaços)
   const totalLinhas = grupo.marcas.reduce((acc, m) => acc + m.modelos.length + 1, 0)
   const altura = Math.max(600, 160 + totalLinhas * 46)
@@ -27,7 +51,7 @@ export async function gerarImagemLista(grupo: GrupoImagem): Promise<ArrayBuffer>
           background: '#000',
           display: 'flex',
           padding: 40,
-          fontFamily: 'sans-serif',
+          fontFamily: 'Noto Sans',
         }}
       >
         {/* Coluna da esquerda: título + modelos */}
@@ -83,7 +107,11 @@ export async function gerarImagemLista(grupo: GrupoImagem): Promise<ArrayBuffer>
         ) : null}
       </div>
     ),
-    { width: LARGURA, height: altura }
+    {
+      width: LARGURA,
+      height: altura,
+      fonts: [{ name: 'Noto Sans', data: fonte, weight: 400, style: 'normal' }],
+    }
   )
 
   return img.arrayBuffer()
