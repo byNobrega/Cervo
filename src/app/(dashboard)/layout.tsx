@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { Header } from '@/components/layout/Header'
+import { LoadingOverlay } from '@/components/layout/LoadingOverlay'
 
 export default function DashboardLayout({
   children,
@@ -13,6 +14,9 @@ export default function DashboardLayout({
 
   return (
     <div className="flex h-screen bg-gray-50">
+      {/* Feedback visual durante a navegação entre páginas */}
+      <LoadingOverlay />
+
       <Sidebar
         aberta={sidebarAberta}
         onFechar={() => setSidebarAberta(false)}
