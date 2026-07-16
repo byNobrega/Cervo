@@ -35,8 +35,25 @@ export interface GrupoImagem {
 
 const LARGURA = 900
 
+// Baixa a foto do produto e converte para JPEG (data URI). O @vercel/og não
+// renderiza WebP; convertendo garantimos que a foto apareça na imagem.
+async function fotoParaDataUri(url: string): Promise<string | null> {
+  try {
+    const resp = await fetch(url)
+    if (!resp.ok) return null
+    const buf = Buffer.from(await resp.arrayBuffer())
+    const { default: sharp } = await import('sharp')
+    const jpeg = await sharp(buf).resize(680, 680, { fit: 'cover' }).jpeg({ quality: 82 }).toBuffer()
+    return `data:image/jpeg;base64,${jpeg.toString('base64')}`
+  } catch (e) {
+    console.error('[listaImagem] falha ao converter foto:', e)
+    return null
+  }
+}
+
 export async function gerarImagemLista(grupo: GrupoImagem): Promise<ArrayBuffer> {
   const fonte = await carregarFonte()
+  const fotoData = grupo.fotoUrl ? await fotoParaDataUri(grupo.fotoUrl) : null
 
   // Altura cresce com a quantidade de linhas (título + modelos + espaços)
   const totalLinhas = grupo.marcas.reduce((acc, m) => acc + m.modelos.length + 1, 0)
@@ -92,12 +109,12 @@ export async function gerarImagemLista(grupo: GrupoImagem): Promise<ArrayBuffer>
           ))}
         </div>
 
-        {/* Foto do produto no canto superior direito */}
-        {grupo.fotoUrl ? (
+        {/* Foto do produto no canto superior direito (convertida para JPEG) */}
+        {fotoData ? (
           <div style={{ display: 'flex', width: 340, height: 340 }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={grupo.fotoUrl}
+              src={fotoData}
               alt=""
               width={340}
               height={340}
