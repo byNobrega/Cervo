@@ -4,8 +4,9 @@ import { revalidatePath } from 'next/cache'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { type ItemSelecionado } from '@/types'
 import { notificar, buscarIdsPorCargo } from '@/lib/notificacoes'
-import { enviarTextoWhatsApp } from '@/lib/zapi'
-import { gerarTextoLista, rotuloCategoria, type ItemLista } from '@/lib/listaWhatsApp'
+import { whatsappAtivo, enviarImagemWhatsApp } from '@/lib/whatsapp'
+import { gerarImagemLista, type GrupoImagem } from '@/lib/listaImagem'
+import { rotuloCategoria, type ItemLista } from '@/lib/listaWhatsApp'
 
 export async function criarPedido(
   userId: string,
@@ -169,7 +170,9 @@ export async function enviarListaWhatsApp(
     return { ok: false, mensagem: 'Apenas gerente ou dono podem enviar a lista.' }
   }
 
-  // Pedido + itens (mesma forma do detalhe), com a unidade e o criador
+  // Pedido + itens (mesma forma do detalhe), com a unidade e o criador.
+  // Traz também o TIPO (subcategoria de capa / tipo de película) com a foto,
+  // usados para montar a imagem da lista.
   const { data: pedido } = await supabase
     .from('pedidos')
     .select(`
@@ -181,7 +184,10 @@ export async function enviarListaWhatsApp(
         categoria,
         nome_snapshot,
         acessorio:acessorios(subcategoria:subcategorias_acessorio(nome)),
-        modelo:modelos_celular(nome, ordem, marca:marcas_celular(nome))
+        modelo:modelos_celular(nome, ordem, marca:marcas_celular(nome)),
+        subcapa:subcategorias_capa(nome, foto_url),
+        peli_maq:tipos_pelicula_maquina(nome, foto_url),
+        peli_trad:tipos_pelicula_tradicional(nome)
       )
     `)
     .eq('id', pedidoId)
@@ -201,35 +207,100 @@ export async function enviarListaWhatsApp(
     (pedido.unidade as unknown as { nome: string } | null)?.nome ?? pedido.nome_loja ?? 'Loja'
   const criadorNome = (pedido.criador as unknown as { nome: string } | null)?.nome ?? 'Equipe'
 
-  const texto = gerarTextoLista({
-    nomeUnidade,
-    criadorNome,
-    dataISO: pedido.created_at,
-    categoria,
-    itens,
-  })
-
-  const envio = await enviarTextoWhatsApp(perfil?.whatsapp, texto)
-
-  if (envio.ok) {
-    return {
-      ok: true,
-      mensagem: `Lista de ${rotuloCategoria(categoria)} enviada para o seu WhatsApp.`,
-    }
-  }
-
-  // Mensagens amigáveis por tipo de falha
-  if (envio.motivo === 'nao_configurado') {
+  if (!whatsappAtivo()) {
     return {
       ok: false,
       mensagem: 'O envio por WhatsApp ainda não está configurado (Z-API pendente).',
     }
   }
-  if (envio.motivo === 'sem_numero') {
-    return {
-      ok: false,
-      mensagem: 'Seu cadastro não tem um número de WhatsApp válido.',
+  const numero = perfil?.whatsapp
+  if (!numero) {
+    return { ok: false, mensagem: 'Seu cadastro não tem um número de WhatsApp válido.' }
+  }
+
+  // Agrupa por TIPO (ex: "Capa Vidro", "Cerâmica") e, dentro dele, por marca.
+  const grupos = agruparPorTipo(itensCategoria as unknown as ItemComTipo[])
+  if (grupos.length === 0) {
+    return { ok: false, mensagem: 'Não há itens nesta categoria.' }
+  }
+
+  const admin = await createAdminClient()
+  const legenda = `${nomeUnidade} · por ${criadorNome} · ${dataCurta(pedido.created_at)}`
+
+  let enviados = 0
+  for (const grupo of grupos) {
+    try {
+      // 1) Gera a imagem da lista deste tipo
+      const png = await gerarImagemLista(grupo)
+
+      // 2) Sobe no Storage (bucket público) para o Z-API conseguir baixar
+      const caminho = `listas/${pedidoId}-${Date.now()}-${enviados}.png`
+      const { error: upErr } = await admin.storage
+        .from('fotos-itens')
+        .upload(caminho, png, { contentType: 'image/png', upsert: true })
+      if (upErr) throw new Error(upErr.message)
+
+      const { data: pub } = admin.storage.from('fotos-itens').getPublicUrl(caminho)
+
+      // 3) Envia a imagem
+      const ok = await enviarImagemWhatsApp(numero, pub.publicUrl, legenda)
+      if (ok) enviados++
+    } catch (e) {
+      console.error('[lista-whats] falha no grupo', grupo.titulo, e)
     }
   }
-  return { ok: false, mensagem: 'Falha ao enviar pelo WhatsApp. Tente novamente.' }
+
+  if (enviados === 0) {
+    return { ok: false, mensagem: 'Falha ao enviar pelo WhatsApp. Tente novamente.' }
+  }
+  return {
+    ok: true,
+    mensagem: `${enviados} lista${enviados > 1 ? 's' : ''} de ${rotuloCategoria(
+      categoria
+    )} enviada${enviados > 1 ? 's' : ''} para o seu WhatsApp.`,
+  }
+}
+
+// Item com os joins de tipo usados na montagem da imagem.
+interface ItemComTipo extends ItemLista {
+  subcapa?: { nome: string; foto_url: string | null } | null
+  peli_maq?: { nome: string; foto_url: string | null } | null
+  peli_trad?: { nome: string } | null
+}
+
+function dataCurta(iso: string): string {
+  const d = new Date(iso)
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
+}
+
+// Agrupa os itens por tipo (subcategoria de capa / tipo de película) e, dentro
+// de cada tipo, por marca — na ordem em que aparecem.
+function agruparPorTipo(itens: ItemComTipo[]): GrupoImagem[] {
+  const porTipo = new Map<string, { foto: string | null; marcas: Map<string, string[]> }>()
+
+  for (const item of itens) {
+    // Nome e foto do tipo, conforme a categoria
+    const tipoNome =
+      item.subcapa?.nome ??
+      item.peli_maq?.nome ??
+      item.peli_trad?.nome ??
+      item.nome_snapshot.split('—')[0]?.trim() ??
+      'Itens'
+    const foto = item.subcapa?.foto_url ?? item.peli_maq?.foto_url ?? null
+
+    if (!porTipo.has(tipoNome)) porTipo.set(tipoNome, { foto, marcas: new Map() })
+    const grupo = porTipo.get(tipoNome)!
+    if (!grupo.foto && foto) grupo.foto = foto
+
+    const marca = item.modelo?.marca?.nome ?? 'Outros'
+    const nomeModelo = item.modelo?.nome ?? item.nome_snapshot
+    if (!grupo.marcas.has(marca)) grupo.marcas.set(marca, [])
+    grupo.marcas.get(marca)!.push(nomeModelo)
+  }
+
+  return Array.from(porTipo.entries()).map(([titulo, dados]) => ({
+    titulo,
+    fotoUrl: dados.foto,
+    marcas: Array.from(dados.marcas.entries()).map(([marca, modelos]) => ({ marca, modelos })),
+  }))
 }

@@ -66,6 +66,42 @@ export async function enviarWhatsApp(
 }
 
 /**
+ * Envia uma imagem via WhatsApp.
+ * `imagem` pode ser uma URL pública ou um data URI (data:image/png;base64,...).
+ * `legenda` é opcional e aparece abaixo da foto.
+ * Nunca lança — falhas não devem quebrar o fluxo principal.
+ */
+export async function enviarImagemWhatsApp(
+  numero: string | null | undefined,
+  imagem: string,
+  legenda?: string
+): Promise<boolean> {
+  if (!whatsappAtivo() || !numero) return false
+
+  const phone = normalizarNumero(numero)
+  const url = `https://api.z-api.io/instances/${INSTANCE_ID}/token/${TOKEN}/send-image`
+
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(CLIENT_TOKEN ? { 'Client-Token': CLIENT_TOKEN } : {}),
+      },
+      body: JSON.stringify({ phone, image: imagem, caption: legenda ?? '' }),
+    })
+    if (!res.ok) {
+      console.error('[whatsapp] send-image falhou:', res.status, await res.text().catch(() => ''))
+      return false
+    }
+    return true
+  } catch (err) {
+    console.error('[whatsapp] falha ao enviar imagem:', err)
+    return false
+  }
+}
+
+/**
  * Envia para múltiplos números em paralelo. Ignora números nulos.
  * Retorna a quantidade de envios bem-sucedidos.
  */

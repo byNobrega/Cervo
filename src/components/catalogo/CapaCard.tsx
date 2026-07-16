@@ -6,10 +6,10 @@ import Image from 'next/image'
 import { Layers, Pencil, Trash2, Loader2 } from 'lucide-react'
 import { editarSubcategoriaCapa, excluirSubcategoriaCapa } from '@/app/actions/catalogo'
 import { ModalExcluir } from './ModalExcluir'
+import { PhotoUpload } from '@/components/shared/PhotoUpload'
 
-// Card de uma subcategoria de capa, com editar (nome) e excluir.
-// Observação: a edição aqui ajusta só o nome; os vínculos de marca são
-// preservados (a action recria com a mesma lista quando não informada).
+// Card de uma subcategoria de capa, com editar (nome/foto) e excluir.
+// A foto é usada também na imagem da lista enviada por WhatsApp.
 export function CapaCard({
   id,
   nome,
@@ -27,12 +27,13 @@ export function CapaCard({
   const [modalExcluir, setModalExcluir] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [valorNome, setValorNome] = useState(nome)
+  const [valorFoto, setValorFoto] = useState(fotoUrl ?? '')
   const router = useRouter()
 
   function salvar() {
     startTransition(async () => {
       // null em marcaIds = mantém os vínculos de marca como estão
-      await editarSubcategoriaCapa(id, valorNome.trim() || nome, fotoUrl, null)
+      await editarSubcategoriaCapa(id, valorNome.trim() || nome, valorFoto || null, null)
       setEditando(false)
       router.refresh() // recarrega a lista para refletir a mudança
     })
@@ -85,12 +86,20 @@ export function CapaCard({
 
       {editando && (
         <div className="px-3 pb-3 pt-1 border-t border-gray-100 space-y-2">
+          <div className="pt-2">
+            <PhotoUpload
+              value={valorFoto}
+              onChange={setValorFoto}
+              pasta="capas"
+              label="Foto (usada na lista do WhatsApp)"
+            />
+          </div>
           <input
             value={valorNome}
             onChange={(e) => setValorNome(e.target.value)}
             placeholder="Nome da subcategoria"
             aria-label="Nome da subcategoria"
-            className="w-full mt-2 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <div className="flex gap-2">
             <button

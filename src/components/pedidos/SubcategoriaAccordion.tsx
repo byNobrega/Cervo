@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
+import Image from 'next/image'
 import { ChevronRight, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { type TemaCategoria } from '@/lib/constants'
@@ -16,6 +17,8 @@ interface Props {
   onToggle?: () => void
   /** Visual de subcategoria concluída (título riscado + check). */
   concluida?: boolean
+  /** Foto de referência do tipo (ex: foto da Capa Vidro). */
+  fotoUrl?: string | null
 }
 
 /**
@@ -31,6 +34,7 @@ export function SubcategoriaAccordion({
   aberta: abertaProp,
   onToggle,
   concluida = false,
+  fotoUrl,
 }: Props) {
   const [abertaInterna, setAbertaInterna] = useState(defaultAberta)
   const controlado = abertaProp !== undefined
@@ -60,6 +64,11 @@ export function SubcategoriaAccordion({
             aberta && 'rotate-90'
           )}
         />
+        {fotoUrl && (
+          <div className="relative w-9 h-9 rounded-md overflow-hidden bg-gray-50 flex-shrink-0">
+            <Image src={fotoUrl} alt={titulo} fill sizes="40px" className="object-cover" />
+          </div>
+        )}
         <span
           className={cn(
             'flex-1 text-xs font-semibold uppercase tracking-wide',

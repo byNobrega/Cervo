@@ -58,6 +58,7 @@ export function AbaCapas({ subcategorias, modelos, tema }: Props) {
             titulo={sub.nome}
             qtdSelecionada={qtd}
             tema={tema}
+            fotoUrl={sub.foto_url}
           >
             <CapaSubcategoria
               subcat={sub}
