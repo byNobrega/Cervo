@@ -122,7 +122,11 @@ export function CadastroForm() {
     }
 
     // Avisa o dono (app + WhatsApp) que há um novo cadastro pendente.
-    // Não bloqueia o fluxo se falhar — o cadastro já foi criado.
+    // IMPORTANTE: o signUp já deixa o usuário logado, e qualquer navegação a
+    // partir daqui aborta esta chamada. Por isso encerramos a sessão recém-criada
+    // ANTES de notificar — o cadastro fica pendente e a pessoa volta ao login.
+    await supabase.auth.signOut()
+
     try {
       const unidadeNome = unidades.find((u) => u.id === data.unidade_id)?.nome ?? null
       await notificarCadastroPendente({
