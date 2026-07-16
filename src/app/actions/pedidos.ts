@@ -7,6 +7,7 @@ import { notificar, buscarIdsPorCargo } from '@/lib/notificacoes'
 import { whatsappAtivo, enviarImagemWhatsApp } from '@/lib/whatsapp'
 import { gerarImagemLista, type GrupoImagem } from '@/lib/listaImagem'
 import { rotuloCategoria, type ItemLista } from '@/lib/listaWhatsApp'
+import { resumoCategorias } from '@/lib/constants'
 
 export async function criarPedido(
   userId: string,
@@ -15,10 +16,10 @@ export async function criarPedido(
   const supabase = await createClient()
   const admin = await createAdminClient()
 
-  // Descobre a unidade do criador para vincular o pedido
+  // Descobre a unidade do criador para vincular o pedido (e para a notificação)
   const { data: perfil } = await supabase
     .from('profiles')
-    .select('unidade_id')
+    .select('unidade_id, nome, unidade:unidades!profiles_unidade_id_fkey(nome)')
     .eq('id', userId)
     .single()
 
@@ -50,15 +51,25 @@ export async function criarPedido(
 
   await supabase.from('pedido_itens').insert(inserts)
 
-  // Notifica gerentes e dono
+  // Notifica gerentes e dono (app + WhatsApp) com uma mensagem rica:
+  // "Lista criada por Fulano — Unidade. Contém: Acessórios + Capas. Ver: link"
+  const criadorNome = perfil?.nome ?? 'Funcionário'
+  const unidadeNome =
+    (perfil?.unidade as unknown as { nome: string } | null)?.nome ?? null
+  const resumoCat = resumoCategorias(itens.map((i) => i.categoria))
+
+  const partes = [`Lista criada por ${criadorNome}`]
+  if (unidadeNome) partes.push(`— ${unidadeNome}`)
+  const cabecalho = partes.join(' ')
+
   const destinatarios = await buscarIdsPorCargo(admin, ['gerente', 'dono'])
   await notificar(
     admin,
     destinatarios.filter((id) => id !== userId),
     'pedido_criado',
-    'Novo pedido criado',
+    'Lista criada',
     {
-      mensagem: `Um novo pedido com ${itens.length} item${itens.length !== 1 ? 's' : ''} foi criado.`,
+      mensagem: `${cabecalho}.\nContém: ${resumoCat}.\nDê uma olhada nos pedidos.`,
       link: `/pedidos/${pedido.id}`,
     }
   )
