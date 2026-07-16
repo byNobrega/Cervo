@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import Image from 'next/image'
@@ -26,6 +27,7 @@ export function AcessoriosCatalogo({ subcategorias, acessorios, cargo }: Props) 
   const [mostrarForm, setMostrarForm] = useState(false)
   const [fotoUrl, setFotoUrl] = useState('')
   const [busca, setBusca] = useState('')
+  const router = useRouter()
 
   const {
     register,
@@ -58,6 +60,7 @@ export function AcessoriosCatalogo({ subcategorias, acessorios, cargo }: Props) 
     reset()
     setFotoUrl('')
     setMostrarForm(false)
+    router.refresh()
   }
 
   return (
@@ -260,6 +263,7 @@ function AcessorioCard({
   const [editando, setEditando] = useState(false)
   const [modalExcluir, setModalExcluir] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const router = useRouter()
 
   // form de edição
   const [nome, setNome] = useState(item.nome)
@@ -276,6 +280,7 @@ function AcessorioCard({
         foto_url: fotoUrl,
       })
       setEditando(false)
+      router.refresh()
     })
   }
 
@@ -283,6 +288,7 @@ function AcessorioCard({
     startTransition(async () => {
       await excluirAcessorio(item.id)
       setModalExcluir(false)
+      router.refresh()
     })
   }
 

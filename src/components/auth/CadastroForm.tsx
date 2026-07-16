@@ -6,9 +6,10 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { notificarCadastroPendente } from '@/app/actions/usuarios'
+import { enviarCodigoVerificacao, validarCodigoVerificacao } from '@/app/actions/verificacao'
 import { cadastroSchema, type CadastroFormData } from '@/lib/validations'
 import { type Unidade } from '@/types'
-import { Eye, EyeOff, Loader2, CheckCircle } from 'lucide-react'
+import { Eye, EyeOff, Loader2, CheckCircle, MessageCircle, ChevronLeft } from 'lucide-react'
 
 export function CadastroForm() {
   const router = useRouter()
@@ -16,6 +17,12 @@ export function CadastroForm() {
   const [sucesso, setSucesso] = useState(false)
   const [verSenha, setVerSenha] = useState(false)
   const [unidades, setUnidades] = useState<Unidade[]>([])
+  // Etapa de confirmação do número por WhatsApp (antes de criar a conta)
+  const [etapaCodigo, setEtapaCodigo] = useState(false)
+  const [dadosPendentes, setDadosPendentes] = useState<CadastroFormData | null>(null)
+  const [codigo, setCodigo] = useState('')
+  const [infoCodigo, setInfoCodigo] = useState('')
+  const [enviandoCodigo, setEnviandoCodigo] = useState(false)
   const supabase = createClient()
 
   const {
@@ -34,8 +41,57 @@ export function CadastroForm() {
       .then(({ data }) => setUnidades(data ?? []))
   }, [supabase])
 
+  // ETAPA 1: valida o form e dispara o código de confirmação no WhatsApp.
+  // A conta só é criada depois que o código for confirmado (etapa 2).
   async function onSubmit(data: CadastroFormData) {
     setErro('')
+    setEnviandoCodigo(true)
+    try {
+      const r = await enviarCodigoVerificacao(data.whatsapp)
+      if (!r.ok) {
+        setErro(r.mensagem)
+        return
+      }
+      setDadosPendentes(data)
+      setInfoCodigo(r.mensagem)
+      setEtapaCodigo(true)
+    } finally {
+      setEnviandoCodigo(false)
+    }
+  }
+
+  // Reenvia o código para o mesmo número.
+  async function reenviarCodigo() {
+    if (!dadosPendentes) return
+    setErro('')
+    setEnviandoCodigo(true)
+    try {
+      const r = await enviarCodigoVerificacao(dadosPendentes.whatsapp)
+      if (r.ok) setInfoCodigo(r.mensagem)
+      else setErro(r.mensagem)
+    } finally {
+      setEnviandoCodigo(false)
+    }
+  }
+
+  // ETAPA 2: confere o código e, se válido, cria a conta de fato.
+  async function confirmarCodigo() {
+    if (!dadosPendentes) return
+    setErro('')
+    setEnviandoCodigo(true)
+    try {
+      const v = await validarCodigoVerificacao(dadosPendentes.whatsapp, codigo)
+      if (!v.ok) {
+        setErro(v.mensagem)
+        return
+      }
+      await criarConta(dadosPendentes)
+    } finally {
+      setEnviandoCodigo(false)
+    }
+  }
+
+  async function criarConta(data: CadastroFormData) {
     // Email é opcional para o usuário, mas o Supabase Auth exige um email.
     // Se não informado, gera um placeholder a partir do WhatsApp.
     const emailLogin = data.email && data.email.trim()
@@ -91,6 +147,74 @@ export function CadastroForm() {
           Aguarde a aprovação do administrador. Você será redirecionado em
           instantes.
         </p>
+      </div>
+    )
+  }
+
+  // Etapa 2: confirmar o código recebido no WhatsApp
+  if (etapaCodigo) {
+    return (
+      <div className="space-y-4">
+        <div className="text-center">
+          <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-3">
+            <MessageCircle className="text-green-600" size={22} />
+          </div>
+          <h3 className="font-semibold text-gray-900">Confirme seu WhatsApp</h3>
+          <p className="text-sm text-gray-500 mt-1">
+            Enviamos um código para <strong>{dadosPendentes?.whatsapp}</strong>.
+            Digite-o abaixo para concluir o cadastro.
+          </p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Código de 6 dígitos
+          </label>
+          <input
+            value={codigo}
+            onChange={(e) => setCodigo(e.target.value.replace(/\D/g, '').slice(0, 6))}
+            inputMode="numeric"
+            placeholder="000000"
+            aria-label="Código de confirmação"
+            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-center text-lg tracking-[0.4em] font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+
+        {infoCodigo && !erro && (
+          <p className="text-green-600 text-xs text-center">{infoCodigo}</p>
+        )}
+        {erro && (
+          <p className="text-red-500 text-sm bg-red-50 px-3 py-2 rounded-lg">{erro}</p>
+        )}
+
+        <button
+          type="button"
+          onClick={confirmarCodigo}
+          disabled={enviandoCodigo || codigo.length !== 6}
+          className="w-full bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
+        >
+          {enviandoCodigo && <Loader2 size={16} className="animate-spin" />}
+          Confirmar e criar conta
+        </button>
+
+        <div className="flex items-center justify-between text-xs">
+          <button
+            type="button"
+            onClick={() => { setEtapaCodigo(false); setCodigo(''); setErro('') }}
+            className="flex items-center gap-1 text-gray-500 hover:text-gray-700"
+          >
+            <ChevronLeft size={13} />
+            Corrigir número
+          </button>
+          <button
+            type="button"
+            onClick={reenviarCodigo}
+            disabled={enviandoCodigo}
+            className="text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50"
+          >
+            Reenviar código
+          </button>
+        </div>
       </div>
     )
   }
@@ -224,12 +348,15 @@ export function CadastroForm() {
 
       <button
         type="submit"
-        disabled={isSubmitting}
+        disabled={isSubmitting || enviandoCodigo}
         className="w-full bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
       >
-        {isSubmitting && <Loader2 size={16} className="animate-spin" />}
-        Criar conta
+        {(isSubmitting || enviandoCodigo) && <Loader2 size={16} className="animate-spin" />}
+        Continuar
       </button>
+      <p className="text-[11px] text-gray-400 text-center">
+        Enviaremos um código no seu WhatsApp para confirmar o número.
+      </p>
     </form>
   )
 }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { PhotoUpload } from '@/components/shared/PhotoUpload'
 import { adicionarSubcategoriaCapa } from '@/app/actions/catalogo'
 import { Plus, Loader2 } from 'lucide-react'
@@ -15,6 +16,7 @@ export function AdicionarCapaForm({ marcas }: { marcas: Marca[] }) {
   const [marcaIds, setMarcaIds] = useState<string[]>([])
   const [isPending, startTransition] = useTransition()
   const [erro, setErro] = useState('')
+  const router = useRouter()
 
   function toggleMarca(id: string) {
     setMarcaIds((atual) =>
@@ -39,6 +41,7 @@ export function AdicionarCapaForm({ marcas }: { marcas: Marca[] }) {
       await adicionarSubcategoriaCapa(nome.trim(), fotoUrl || null, marcaIds)
       resetar()
       setAberto(false)
+      router.refresh()
     })
   }
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import Image from 'next/image'
@@ -20,6 +21,7 @@ export function MaterialCatalogo({ materiais, cargo }: Props) {
   const [mostrarForm, setMostrarForm] = useState(false)
   const [fotoUrl, setFotoUrl] = useState('')
   const [busca, setBusca] = useState('')
+  const router = useRouter()
 
   const {
     register,
@@ -41,6 +43,7 @@ export function MaterialCatalogo({ materiais, cargo }: Props) {
     reset()
     setFotoUrl('')
     setMostrarForm(false)
+    router.refresh()
   }
 
   return (
@@ -137,17 +140,20 @@ function MaterialCard({ item, podeGerenciar }: { item: MaterialLoja; podeGerenci
   const [isPending, startTransition] = useTransition()
   const [nome, setNome] = useState(item.nome)
   const [fotoUrl, setFotoUrl] = useState(item.foto_url ?? '')
+  const router = useRouter()
 
   function salvarEdicao() {
     startTransition(async () => {
       await editarMaterial(item.id, { nome: nome.trim() || item.nome, foto_url: fotoUrl || undefined })
       setEditando(false)
+      router.refresh()
     })
   }
   function confirmarExcluir() {
     startTransition(async () => {
       await excluirMaterial(item.id)
       setModalExcluir(false)
+      router.refresh()
     })
   }
 

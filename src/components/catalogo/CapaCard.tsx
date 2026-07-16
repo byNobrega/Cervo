@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Layers, Pencil, Trash2, Loader2 } from 'lucide-react'
 import { editarSubcategoriaCapa, excluirSubcategoriaCapa } from '@/app/actions/catalogo'
@@ -26,19 +27,21 @@ export function CapaCard({
   const [modalExcluir, setModalExcluir] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [valorNome, setValorNome] = useState(nome)
+  const router = useRouter()
 
   function salvar() {
     startTransition(async () => {
-      // Mantém marcas/foto como estão: passa [] de marcaIds só recriaria vínculos;
-      // por isso aqui não mexemos em marcas — editamos o nome via action dedicada.
-      await editarSubcategoriaCapa(id, valorNome.trim() || nome, fotoUrl, [])
+      // null em marcaIds = mantém os vínculos de marca como estão
+      await editarSubcategoriaCapa(id, valorNome.trim() || nome, fotoUrl, null)
       setEditando(false)
+      router.refresh() // recarrega a lista para refletir a mudança
     })
   }
   function confirmarExcluir() {
     startTransition(async () => {
       await excluirSubcategoriaCapa(id)
       setModalExcluir(false)
+      router.refresh() // recarrega a lista para o item sumir da tela
     })
   }
 

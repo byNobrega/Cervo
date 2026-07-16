@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useTransition } from 'react'
+import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Shield, Pencil, Trash2, Loader2 } from 'lucide-react'
 import { editarTipoPelicula, excluirTipoPelicula } from '@/app/actions/catalogo'
@@ -25,17 +26,20 @@ export function TipoPeliculaCard({
   const [modalExcluir, setModalExcluir] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [valorNome, setValorNome] = useState(nome)
+  const router = useRouter()
 
   function salvar() {
     startTransition(async () => {
       await editarTipoPelicula(tabela, id, valorNome.trim() || nome)
       setEditando(false)
+      router.refresh()
     })
   }
   function confirmarExcluir() {
     startTransition(async () => {
       await excluirTipoPelicula(tabela, id)
       setModalExcluir(false)
+      router.refresh()
     })
   }
 
