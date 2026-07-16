@@ -12,6 +12,7 @@ import { Check, X, Printer, Loader2, Package, AlertCircle, ChevronRight, Trash2 
 import { cn } from '@/lib/utils'
 import { SubcategoriaAccordion } from './SubcategoriaAccordion'
 import { LogoUnidade } from '@/components/shared/LogoUnidade'
+import { celebrar, somConfirmar, somClique } from '@/lib/efeitos'
 import { WhatsAppIcon } from '@/components/shared/WhatsAppIcon'
 
 // Item com dados aninhados vindos do JOIN na query
@@ -213,6 +214,7 @@ export function PedidoView({ pedido, cargo, userId }: Props) {
     setModalAberto(false)
     setFinalizando(true)
     await finalizarPedido(pedido.id, userId)
+    celebrar(true) // celebração intensa: confete + trompete ao finalizar a lista
     setFinalizando(false)
   }
 
@@ -341,8 +343,12 @@ export function PedidoView({ pedido, cargo, userId }: Props) {
       {grupos
         .filter((g) => g.cat === abaAberta)
         .map(({ cat, tema, itens: lista }) => {
-          const onAtualizarItem = (id: string, status: 'comprado' | 'nao_tem') =>
+          const onAtualizarItem = (id: string, status: 'comprado' | 'nao_tem') => {
+            // Som de confirmação ao marcar comprado; clique neutro ao marcar não tem
+            if (status === 'comprado') somConfirmar()
+            else somClique()
             startTransition(() => atualizarStatusItem(id, status))
+          }
 
           // Sub-agrupa por subgrupo (subcategoria/tipo), preservando a ordem de aparição.
           const ordem: string[] = []

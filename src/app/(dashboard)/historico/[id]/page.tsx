@@ -8,6 +8,7 @@ import { Package, Printer, Check, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ReutilizarPedidoButton } from '@/components/historico/ReutilizarPedidoButton'
 import { LogoUnidade } from '@/components/shared/LogoUnidade'
+import { CelebracaoCompra } from '@/components/pedidos/CelebracaoCompra'
 export const dynamic = 'force-dynamic'
 
 export default async function HistoricoDetalhe({ params }: { params: { id: string } }) {
@@ -15,19 +16,26 @@ export default async function HistoricoDetalhe({ params }: { params: { id: strin
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: pedido } = await supabase
-    .from('pedidos')
-    .select(`
-      *,
-      criador:profiles!pedidos_criado_por_fkey(nome),
-      finalizador:profiles!pedidos_concluido_por_fkey(nome),
-      unidade:unidades(nome),
-      itens:pedido_itens(*)
-    `)
-    .eq('id', params.id)
-    .single()
+  const [{ data: pedido }, { data: perfil }] = await Promise.all([
+    supabase
+      .from('pedidos')
+      .select(`
+        *,
+        criador:profiles!pedidos_criado_por_fkey(nome),
+        finalizador:profiles!pedidos_concluido_por_fkey(nome),
+        unidade:unidades(nome),
+        itens:pedido_itens(*)
+      `)
+      .eq('id', params.id)
+      .single(),
+    supabase.from('profiles').select('cargo').eq('id', user.id).single(),
+  ])
 
   if (!pedido) redirect('/historico')
+
+  // Celebra quando o FUNCIONÁRIO que criou a lista a vê já concluída (comprada).
+  const ehFuncionarioCriador =
+    perfil?.cargo === 'funcionario' && pedido.criado_por === user.id
 
   const itens = pedido.itens as { id: string; status: string; categoria: string; nome_snapshot: string; foto_url_snapshot: string | null; observacao: string | null }[] ?? []
   const total = itens.length
@@ -45,6 +53,7 @@ export default async function HistoricoDetalhe({ params }: { params: { id: strin
 
   return (
     <div className="max-w-3xl mx-auto">
+      {ehFuncionarioCriador && <CelebracaoCompra pedidoId={pedido.id} />}
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div>

@@ -8,6 +8,7 @@ import { whatsappAtivo, enviarImagemWhatsApp, enviarWhatsApp } from '@/lib/whats
 import { gerarImagemLista, type GrupoImagem } from '@/lib/listaImagem'
 import { rotuloCategoria, type ItemLista } from '@/lib/listaWhatsApp'
 import { resumoCategorias } from '@/lib/constants'
+import { ordenarModeloNatural } from '@/lib/ordenarModelos'
 
 export async function criarPedido(
   userId: string,
@@ -332,9 +333,24 @@ function agruparPorTipo(itens: ItemComTipo[]): GrupoImagem[] {
     grupo.marcas.get(marca)!.push(nomeModelo)
   }
 
+  // Ordem de exibição das marcas (mesma do resto do app).
+  const ORDEM_MARCAS = ['Apple', 'Samsung', 'Motorola', 'Xiaomi', 'Redmi', 'Realme']
+  const ordemDaMarca = (m: string) => {
+    const i = ORDEM_MARCAS.indexOf(m)
+    return i === -1 ? ORDEM_MARCAS.length : i
+  }
+
   return Array.from(porTipo.entries()).map(([titulo, dados]) => ({
     titulo,
     fotoUrl: dados.foto,
-    marcas: Array.from(dados.marcas.entries()).map(([marca, modelos]) => ({ marca, modelos })),
+    marcas: Array.from(dados.marcas.entries())
+      // marcas na ordem padrão
+      .sort((a, b) => ordemDaMarca(a[0]) - ordemDaMarca(b[0]))
+      .map(([marca, modelos]) => ({
+        marca,
+        // modelos em ordem natural (16 < 16e < 16 Pro < 17...), independente
+        // da ordem em que foram clicados ao montar o pedido
+        modelos: [...modelos].sort(ordenarModeloNatural),
+      })),
   }))
 }

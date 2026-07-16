@@ -8,6 +8,7 @@ import { AbaCapas } from './AbaCapas'
 import { AbaPeliculas } from './AbaPeliculas'
 import { AbaMaterial } from './AbaMaterial'
 import { criarPedido } from '@/app/actions/pedidos'
+import { celebrar } from '@/lib/efeitos'
 import { Loader2, ShoppingCart, Plus, ChevronLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TEMA_CATEGORIA, type CategoriaPedido } from '@/lib/constants'
@@ -59,6 +60,7 @@ export function NovoPedidoWizard(props: Props) {
     setSalvando(true)
     try {
       const pedidoId = await criarPedido(props.userId, itens)
+      celebrar() // confete + trompete ao criar a lista
       limpar()
       router.push(`/pedidos/${pedidoId}`)
     } finally {
