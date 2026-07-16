@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { type ItemSelecionado } from '@/types'
 import { notificar, buscarIdsPorCargo } from '@/lib/notificacoes'
-import { whatsappAtivo, enviarImagemWhatsApp } from '@/lib/whatsapp'
+import { whatsappAtivo, enviarImagemWhatsApp, enviarWhatsApp } from '@/lib/whatsapp'
 import { gerarImagemLista, type GrupoImagem } from '@/lib/listaImagem'
 import { rotuloCategoria, type ItemLista } from '@/lib/listaWhatsApp'
 import { resumoCategorias } from '@/lib/constants'
@@ -242,6 +242,7 @@ export async function enviarListaWhatsApp(
 
   let enviados = 0
   for (const grupo of grupos) {
+    let enviouImagem = false
     try {
       // 1) Gera a imagem da lista deste tipo
       const png = await gerarImagemLista(grupo)
@@ -256,10 +257,23 @@ export async function enviarListaWhatsApp(
       const { data: pub } = admin.storage.from('fotos-itens').getPublicUrl(caminho)
 
       // 3) Envia a imagem
-      const ok = await enviarImagemWhatsApp(numero, pub.publicUrl, legenda)
-      if (ok) enviados++
+      enviouImagem = await enviarImagemWhatsApp(numero, pub.publicUrl, legenda)
+      if (enviouImagem) enviados++
     } catch (e) {
-      console.error('[lista-whats] falha no grupo', grupo.titulo, e)
+      console.error('[lista-whats] falha ao gerar/enviar imagem do grupo', grupo.titulo, e)
+    }
+
+    // Fallback: se a imagem falhou (ex: bug do @vercel/og no Windows local),
+    // envia a lista em TEXTO para não deixar o gerente sem a informação.
+    if (!enviouImagem) {
+      const linhas = [`*${grupo.titulo}*`, legenda, '']
+      for (const bloco of grupo.marcas) {
+        if (grupo.marcas.length > 1) linhas.push(bloco.marca)
+        linhas.push(...bloco.modelos)
+        linhas.push('')
+      }
+      const ok = await enviarWhatsApp(numero, linhas.join('\n').trim())
+      if (ok) enviados++
     }
   }
 
