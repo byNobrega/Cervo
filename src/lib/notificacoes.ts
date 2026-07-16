@@ -35,7 +35,14 @@ export async function notificar(
       (p: { whatsapp: string | null; whatsapp_anterior: string | null }) =>
         p.whatsapp || p.whatsapp_anterior
     )
-    const texto = opcoes?.mensagem ? `*${titulo}*\n${opcoes.mensagem}` : titulo
+
+    // Monta o link completo (URL pública + caminho) para abrir direto do zap.
+    const base = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '')
+    const linkCompleto = opcoes?.link && base ? `${base}${opcoes.link}` : null
+
+    let texto = opcoes?.mensagem ? `*${titulo}*\n${opcoes.mensagem}` : titulo
+    if (linkCompleto) texto += `\n\n${linkCompleto}`
+
     await enviarWhatsAppEmMassa(numeros, texto)
   }
 }

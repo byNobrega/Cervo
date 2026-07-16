@@ -53,26 +53,28 @@ export async function criarPedido(
 
   // Notifica gerentes e dono (app + WhatsApp) com uma mensagem rica:
   // "Lista criada por Fulano — Unidade. Contém: Acessórios + Capas. Ver: link"
-  const criadorNome = perfil?.nome ?? 'Funcionário'
-  const unidadeNome =
-    (perfil?.unidade as unknown as { nome: string } | null)?.nome ?? null
-  const resumoCat = resumoCategorias(itens.map((i) => i.categoria))
+  // Envolvido em try/catch para nunca quebrar a criação do pedido se a
+  // notificação/WhatsApp falhar.
+  try {
+    const criadorNome = perfil?.nome ?? 'Funcionário'
+    const unidadeNome =
+      (perfil?.unidade as unknown as { nome: string } | null)?.nome ?? null
+    const resumoCat = resumoCategorias(itens.map((i) => i.categoria))
 
-  const partes = [`Lista criada por ${criadorNome}`]
-  if (unidadeNome) partes.push(`— ${unidadeNome}`)
-  const cabecalho = partes.join(' ')
+    const partes = [`Lista criada por ${criadorNome}`]
+    if (unidadeNome) partes.push(`— ${unidadeNome}`)
+    const cabecalho = partes.join(' ')
 
-  const destinatarios = await buscarIdsPorCargo(admin, ['gerente', 'dono'])
-  await notificar(
-    admin,
-    destinatarios.filter((id) => id !== userId),
-    'pedido_criado',
-    'Lista criada',
-    {
+    const destinatarios = await buscarIdsPorCargo(admin, ['gerente', 'dono'])
+    const alvos = destinatarios.filter((id) => id !== userId)
+
+    await notificar(admin, alvos, 'pedido_criado', 'Lista criada', {
       mensagem: `${cabecalho}.\nContém: ${resumoCat}.\nDê uma olhada nos pedidos.`,
       link: `/pedidos/${pedido.id}`,
-    }
-  )
+    })
+  } catch (e) {
+    console.error('[criarPedido] falha ao notificar gestores:', e)
+  }
 
   revalidatePath('/pedidos')
   return pedido.id
