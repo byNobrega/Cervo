@@ -12,6 +12,7 @@ import { PhotoUpload } from '@/components/shared/PhotoUpload'
 import { TEMA_CATEGORIA } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { ModalExcluir } from './ModalExcluir'
+import { NovaSugestaoForm } from '@/components/sugestoes/NovaSugestaoForm'
 import { Plus, Package, Loader2, Search, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import { useTransition } from 'react'
 
@@ -52,7 +53,6 @@ export function AcessoriosCatalogo({ subcategorias, acessorios, cargo }: Props) 
     sub,
     itens: filtrados.filter((a) => a.subcategoria_id === sub.id),
   }))
-  const semSubcategoria = filtrados.filter((a) => !a.subcategoria_id)
   const nenhumResultado = termo && filtrados.length === 0
 
   async function onSubmit(data: AcessorioFormData) {
@@ -100,15 +100,6 @@ export function AcessoriosCatalogo({ subcategorias, acessorios, cargo }: Props) 
           )
         })}
 
-        {semSubcategoria.length > 0 && (
-          <SubcategoriaCatalogo
-            titulo="Outros"
-            itens={semSubcategoria}
-            abertaInicial={!!termo}
-            podeGerenciar={podeGerenciar}
-            subcategorias={subcategorias}
-          />
-        )}
       </div>
 
       {podeGerenciar && !termo && (
@@ -192,6 +183,19 @@ export function AcessoriosCatalogo({ subcategorias, acessorios, cargo }: Props) 
             </button>
           )}
         </>
+      )}
+
+      {/* Funcionário: sugere um novo acessório (vai para o gerente aprovar) */}
+      {!podeGerenciar && !termo && (
+        <NovaSugestaoForm
+          subcategorias={subcategorias}
+          marcas={[]}
+          tipoInicial="acessorio"
+          tipoFixo
+          variante="link"
+          classeLink={TEMA.link}
+          rotuloBotao="Sugerir novo acessório"
+        />
       )}
     </div>
   )

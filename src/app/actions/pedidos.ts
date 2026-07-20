@@ -81,7 +81,10 @@ export async function criarPedido(
   return pedido.id
 }
 
-export async function atualizarStatusItem(itemId: string, status: 'comprado' | 'nao_tem') {
+export async function atualizarStatusItem(
+  itemId: string,
+  status: 'comprado' | 'nao_tem' | 'pendente'
+) {
   const supabase = await createClient()
   await supabase.from('pedido_itens').update({ status }).eq('id', itemId)
   revalidatePath('/pedidos/[id]', 'page')

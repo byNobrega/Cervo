@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { usePedidoStore } from '@/store/pedidoStore'
-import { type TipoSugestao } from '@/types'
+import { type TipoSugestao, type SubcategoriaAcessorio } from '@/types'
 import { PhotoUpload } from '@/components/shared/PhotoUpload'
 import { criarSugestaoInline } from '@/app/actions/sugestoes'
 import { Loader2, X } from 'lucide-react'
@@ -10,11 +10,14 @@ import { Loader2, X } from 'lucide-react'
 interface Props {
   tipo: TipoSugestao
   onFechar: () => void
+  // Subcategorias de acessório (para o funcionário classificar a sugestão)
+  subcategorias?: SubcategoriaAcessorio[]
 }
 
-export function SugestaoInlineForm({ tipo, onFechar }: Props) {
+export function SugestaoInlineForm({ tipo, onFechar, subcategorias = [] }: Props) {
   const [nome, setNome] = useState('')
   const [marca, setMarca] = useState('')
+  const [subcategoriaId, setSubcategoriaId] = useState('')
   const [fotoUrl, setFotoUrl] = useState('')
   const [salvando, setSalvando] = useState(false)
   const { adicionarItem } = usePedidoStore()
@@ -26,7 +29,13 @@ export function SugestaoInlineForm({ tipo, onFechar }: Props) {
     setSalvando(true)
 
     try {
-      const sugestaoId = await criarSugestaoInline({ tipo, nome, marca: marca || undefined, fotoUrl: fotoUrl || undefined })
+      const sugestaoId = await criarSugestaoInline({
+        tipo,
+        nome,
+        marca: marca || undefined,
+        fotoUrl: fotoUrl || undefined,
+        subcategoriaId: tipo === 'acessorio' && subcategoriaId ? subcategoriaId : undefined,
+      })
 
       // Adiciona ao pedido imediatamente como item pendente
       adicionarItem({
@@ -71,15 +80,31 @@ export function SugestaoInlineForm({ tipo, onFechar }: Props) {
       </div>
 
       {tipo === 'acessorio' && (
-        <div>
-          <label className="block text-xs font-medium text-yellow-700 mb-1">Marca (opcional)</label>
-          <input
-            value={marca}
-            onChange={(e) => setMarca(e.target.value)}
-            placeholder="Marca"
-            className="w-full px-3 py-2 border border-yellow-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 bg-white"
-          />
-        </div>
+        <>
+          <div>
+            <label className="block text-xs font-medium text-yellow-700 mb-1">Subcategoria</label>
+            <select
+              value={subcategoriaId}
+              onChange={(e) => setSubcategoriaId(e.target.value)}
+              aria-label="Subcategoria do acessório"
+              className="w-full px-3 py-2 border border-yellow-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 bg-white"
+            >
+              <option value="">Sem subcategoria definida</option>
+              {subcategorias.map((s) => (
+                <option key={s.id} value={s.id}>{s.nome}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-yellow-700 mb-1">Marca (opcional)</label>
+            <input
+              value={marca}
+              onChange={(e) => setMarca(e.target.value)}
+              placeholder="Marca"
+              className="w-full px-3 py-2 border border-yellow-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-yellow-400 bg-white"
+            />
+          </div>
+        </>
       )}
 
       <p className="text-[11px] text-yellow-600">

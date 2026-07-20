@@ -48,7 +48,6 @@ export function AbaAcessorios({ subcategorias, acessorios, tema }: Props) {
     sub,
     itens: acessorios.filter((a) => a.subcategoria_id === sub.id),
   }))
-  const semSubcat = acessorios.filter((a) => !a.subcategoria_id)
 
   function qtdSelecionada(lista: Acessorio[]) {
     return lista.filter((a) => isSelected(a.id)).length
@@ -86,31 +85,6 @@ export function AbaAcessorios({ subcategorias, acessorios, tema }: Props) {
         </SubcategoriaAccordion>
       ))}
 
-      {semSubcat.length > 0 && (
-        <SubcategoriaAccordion
-          titulo="Outros"
-          qtdSelecionada={qtdSelecionada(semSubcat)}
-          tema={tema}
-        >
-          <div className="space-y-1.5 pt-2">
-            {semSubcat.map((a) => (
-              <ItemAcessorio
-                key={a.id}
-                acessorio={a}
-                tema={tema}
-                selecionado={isSelected(a.id)}
-                onToggle={() => toggle(a)}
-                tempId={getTempId(a.id)}
-                obsAberta={obsAberta}
-                setObsAberta={setObsAberta}
-                atualizarObservacao={atualizarObservacao}
-                obsAtual={itens.find((i) => i.acessorioId === a.id)?.observacao ?? ''}
-              />
-            ))}
-          </div>
-        </SubcategoriaAccordion>
-      )}
-
       {!mostrarSugestao ? (
         <button
           type="button"
@@ -123,6 +97,7 @@ export function AbaAcessorios({ subcategorias, acessorios, tema }: Props) {
       ) : (
         <SugestaoInlineForm
           tipo="acessorio"
+          subcategorias={subcategorias}
           onFechar={() => setMostrarSugestao(false)}
         />
       )}

@@ -98,7 +98,7 @@ function temaDaCategoria(cat: string): CategoriaPedido {
 export function PedidoView({ pedido, cargo, userId }: Props) {
   const router = useRouter()
   const [modalAberto, setModalAberto] = useState(false)
-  const [isPending, startTransition] = useTransition()
+  const [isPending] = useTransition()
   const [finalizando, setFinalizando] = useState(false)
   const [modalExcluir, setModalExcluir] = useState(false)
   const [excluindo, setExcluindo] = useState(false)
@@ -106,7 +106,13 @@ export function PedidoView({ pedido, cargo, userId }: Props) {
   const [enviandoCat, setEnviandoCat] = useState<string | null>(null)
   const [feedbackWhats, setFeedbackWhats] = useState<{ ok: boolean; msg: string } | null>(null)
 
-  const itens = pedido.itens ?? []
+  // Estado local dos itens para atualização OTIMISTA (o status muda na hora ao
+  // clicar; a action roda em background). Elimina o delay de 2-3s.
+  const [itens, setItens] = useState<PedidoItemComSub[]>(pedido.itens ?? [])
+  // Mantém sincronizado se o servidor trouxer dados novos.
+  useEffect(() => {
+    setItens(pedido.itens ?? [])
+  }, [pedido.itens])
   const total = itens.length
   const comprados = itens.filter((i) => i.status === 'comprado').length
   const naoTem = itens.filter((i) => i.status === 'nao_tem').length
@@ -347,7 +353,18 @@ export function PedidoView({ pedido, cargo, userId }: Props) {
             // Som de confirmação ao marcar comprado; clique neutro ao marcar não tem
             if (status === 'comprado') somConfirmar()
             else somClique()
-            startTransition(() => atualizarStatusItem(id, status))
+            // Se clicar de novo no mesmo status, desmarca (volta a pendente).
+            const atual = itens.find((i) => i.id === id)?.status
+            const novo = atual === status ? 'pendente' : status
+            // 1) Atualiza a UI na hora (otimista)
+            setItens((lista) =>
+              lista.map((i) => (i.id === id ? { ...i, status: novo } : i))
+            )
+            // 2) Persiste em background (sem bloquear a interface)
+            atualizarStatusItem(id, novo).catch(() => {
+              // Em caso de falha, ressincroniza com o servidor
+              router.refresh()
+            })
           }
 
           // Sub-agrupa por subgrupo (subcategoria/tipo), preservando a ordem de aparição.
