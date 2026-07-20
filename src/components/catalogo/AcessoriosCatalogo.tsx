@@ -43,7 +43,13 @@ export function AcessoriosCatalogo({ subcategorias, acessorios, cargo }: Props) 
   const podeGerenciar = ['gerente', 'dono'].includes(cargo)
 
   const termo = busca.trim()
-  const filtrados = filtrarPorBusca(acessorios, termo, (a) => [a.nome, a.marca])
+  // Busca pelo nome, marca E subcategoria (ex: "cabo c" acha "C para C" da
+  // subcategoria "Cabos", mesmo a palavra "cabo" não estando no nome).
+  const filtrados = filtrarPorBusca(acessorios, termo, (a) => [
+    a.nome,
+    a.marca,
+    a.subcategoria?.nome,
+  ])
 
   const porSubcategoria = subcategorias.map((sub) => ({
     sub,

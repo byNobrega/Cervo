@@ -48,7 +48,11 @@ export function AbaAcessorios({ subcategorias, acessorios, tema }: Props) {
   }
 
   const termo = busca.trim()
-  const acessoriosFiltrados = filtrarPorBusca(acessorios, termo, (a) => [a.nome, a.marca])
+  const acessoriosFiltrados = filtrarPorBusca(acessorios, termo, (a) => [
+    a.nome,
+    a.marca,
+    a.subcategoria?.nome,
+  ])
 
   const porSubcategoria = subcategorias
     .map((sub) => ({
