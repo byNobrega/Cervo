@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils'
 import { ModalExcluir } from './ModalExcluir'
 import { NovaSugestaoForm } from '@/components/sugestoes/NovaSugestaoForm'
 import { ordenarNatural } from '@/lib/ordenarModelos'
+import { filtrarPorBusca } from '@/lib/busca'
 import { Plus, Package, Loader2, Search, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import { useTransition } from 'react'
 
@@ -41,14 +42,8 @@ export function AcessoriosCatalogo({ subcategorias, acessorios, cargo }: Props) 
 
   const podeGerenciar = ['gerente', 'dono'].includes(cargo)
 
-  const termo = busca.trim().toLowerCase()
-  const filtrados = termo
-    ? acessorios.filter(
-        (a) =>
-          a.nome.toLowerCase().includes(termo) ||
-          (a.marca?.toLowerCase().includes(termo) ?? false)
-      )
-    : acessorios
+  const termo = busca.trim()
+  const filtrados = filtrarPorBusca(acessorios, termo, (a) => [a.nome, a.marca])
 
   const porSubcategoria = subcategorias.map((sub) => ({
     sub,

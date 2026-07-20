@@ -11,6 +11,7 @@ import { adicionarMaterial, editarMaterial, excluirMaterial } from '@/app/action
 import { PhotoUpload } from '@/components/shared/PhotoUpload'
 import { Plus, ShoppingBag, Loader2, Search, Pencil, Trash2 } from 'lucide-react'
 import { ModalExcluir } from './ModalExcluir'
+import { filtrarPorBusca } from '@/lib/busca'
 
 interface Props {
   materiais: MaterialLoja[]
@@ -33,10 +34,8 @@ export function MaterialCatalogo({ materiais, cargo }: Props) {
 
   const podeGerenciar = ['gerente', 'dono'].includes(cargo)
 
-  const termo = busca.trim().toLowerCase()
-  const filtrados = termo
-    ? materiais.filter((m) => m.nome.toLowerCase().includes(termo))
-    : materiais
+  const termo = busca.trim()
+  const filtrados = filtrarPorBusca(materiais, termo, (m) => [m.nome])
 
   async function onSubmit(data: MaterialFormData) {
     await adicionarMaterial(data)

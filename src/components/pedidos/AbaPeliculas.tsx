@@ -4,11 +4,12 @@ import { useState } from 'react'
 import { usePedidoStore } from '@/store/pedidoStore'
 import { type TipoPeliculaMaquina, type TipoPeliculaTradicional, type ModeloCelular, type MarcaCelular } from '@/types'
 import { type TemaCategoria } from '@/lib/constants'
-import { Check, ChevronLeft } from 'lucide-react'
+import { Check, ChevronLeft, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SubcategoriaAccordion } from './SubcategoriaAccordion'
 import { NovaSugestaoForm } from '@/components/sugestoes/NovaSugestaoForm'
 import { ordenarModeloNatural } from '@/lib/ordenarModelos'
+import { filtrarPorBusca } from '@/lib/busca'
 
 interface Props {
   maquina: TipoPeliculaMaquina[]
@@ -162,8 +163,13 @@ function PeliculaTradicional({
   toggleTrad: (tipo: TipoPeliculaTradicional, modelo: ModeloCelular & { marca: MarcaCelular }) => void
 }) {
   const [marcaSel, setMarcaSel] = useState<string | null>(null)
+  const [buscaModelo, setBuscaModelo] = useState('')
   const modelosFiltrados = marcaSel
-    ? modelos.filter((m) => m.marca_id === marcaSel).sort((a, b) => ordenarModeloNatural(a.nome, b.nome))
+    ? filtrarPorBusca(
+        modelos.filter((m) => m.marca_id === marcaSel),
+        buscaModelo.trim(),
+        (m) => [m.nome]
+      ).sort((a, b) => ordenarModeloNatural(a.nome, b.nome))
     : []
 
   if (!marcaSel) {
@@ -204,8 +210,18 @@ function PeliculaTradicional({
         <ChevronLeft size={13} />
         {marcaNome} — trocar marca
       </button>
+      <div className="relative">
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+        <input
+          type="text"
+          value={buscaModelo}
+          onChange={(e) => setBuscaModelo(e.target.value)}
+          placeholder="Buscar modelo..."
+          className="w-full pl-9 pr-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
       {modelosFiltrados.length === 0 ? (
-        <p className="text-sm text-gray-400 py-2 text-center">Nenhum modelo cadastrado</p>
+        <p className="text-sm text-gray-400 py-2 text-center">Nenhum modelo encontrado</p>
       ) : (
         modelosFiltrados.map((modelo) => {
           const sel = isTradSelected(tipo.id, modelo.id)

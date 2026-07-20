@@ -5,9 +5,10 @@ import Image from 'next/image'
 import { usePedidoStore } from '@/store/pedidoStore'
 import { type MaterialLoja } from '@/types'
 import { type TemaCategoria } from '@/lib/constants'
-import { Check, ShoppingBag, MessageSquare, Plus } from 'lucide-react'
+import { Check, ShoppingBag, MessageSquare, Plus, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SugestaoInlineForm } from './SugestaoInlineForm'
+import { filtrarPorBusca } from '@/lib/busca'
 
 interface Props {
   materiais: MaterialLoja[]
@@ -18,6 +19,9 @@ export function AbaMaterial({ materiais, tema }: Props) {
   const { itens, adicionarItem, removerItem, atualizarObservacao } = usePedidoStore()
   const [obsAberta, setObsAberta] = useState<string | null>(null)
   const [mostrarSugestao, setMostrarSugestao] = useState(false)
+  const [busca, setBusca] = useState('')
+
+  const materiaisFiltrados = filtrarPorBusca(materiais, busca.trim(), (m) => [m.nome])
 
   function isSelected(materialId: string) {
     return itens.some((i) => i.materialId === materialId)
@@ -44,7 +48,22 @@ export function AbaMaterial({ materiais, tema }: Props) {
 
   return (
     <div className="space-y-2">
-      {materiais.map((mat) => {
+      <div className="relative">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+        <input
+          type="text"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Buscar material..."
+          className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      {busca.trim() && materiaisFiltrados.length === 0 && (
+        <p className="text-center py-6 text-sm text-gray-400">Nenhum material encontrado</p>
+      )}
+
+      {materiaisFiltrados.map((mat) => {
         const sel = isSelected(mat.id)
         const tempId = getTempId(mat.id)
         const obsAtual = itens.find((i) => i.materialId === mat.id)?.observacao ?? ''

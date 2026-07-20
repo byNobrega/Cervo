@@ -5,11 +5,12 @@ import Image from 'next/image'
 import { usePedidoStore } from '@/store/pedidoStore'
 import { type SubcategoriaAcessorio, type Acessorio } from '@/types'
 import { type TemaCategoria } from '@/lib/constants'
-import { Package, Check, MessageSquare, Plus } from 'lucide-react'
+import { Package, Check, MessageSquare, Plus, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SugestaoInlineForm } from './SugestaoInlineForm'
 import { SubcategoriaAccordion } from './SubcategoriaAccordion'
 import { ordenarNatural } from '@/lib/ordenarModelos'
+import { filtrarPorBusca } from '@/lib/busca'
 
 interface Props {
   subcategorias: SubcategoriaAcessorio[]
@@ -21,6 +22,7 @@ export function AbaAcessorios({ subcategorias, acessorios, tema }: Props) {
   const { itens, adicionarItem, removerItem, atualizarObservacao } = usePedidoStore()
   const [obsAberta, setObsAberta] = useState<string | null>(null)
   const [mostrarSugestao, setMostrarSugestao] = useState(false)
+  const [busca, setBusca] = useState('')
 
   function isSelected(acessorioId: string) {
     return itens.some((i) => i.acessorioId === acessorioId)
@@ -45,12 +47,18 @@ export function AbaAcessorios({ subcategorias, acessorios, tema }: Props) {
     }
   }
 
-  const porSubcategoria = subcategorias.map((sub) => ({
-    sub,
-    itens: acessorios
-      .filter((a) => a.subcategoria_id === sub.id)
-      .sort((a, b) => ordenarNatural(a.nome, b.nome)),
-  }))
+  const termo = busca.trim()
+  const acessoriosFiltrados = filtrarPorBusca(acessorios, termo, (a) => [a.nome, a.marca])
+
+  const porSubcategoria = subcategorias
+    .map((sub) => ({
+      sub,
+      itens: acessoriosFiltrados
+        .filter((a) => a.subcategoria_id === sub.id)
+        .sort((a, b) => ordenarNatural(a.nome, b.nome)),
+    }))
+    // ao buscar, esconde as subcategorias sem resultado
+    .filter(({ itens }) => !termo || itens.length > 0)
 
   function qtdSelecionada(lista: Acessorio[]) {
     return lista.filter((a) => isSelected(a.id)).length
@@ -58,12 +66,31 @@ export function AbaAcessorios({ subcategorias, acessorios, tema }: Props) {
 
   return (
     <div className="space-y-2">
+      {/* Busca inteligente (ignora hífen/acento/caixa: "kd 751" acha "KD-751") */}
+      <div className="relative">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+        <input
+          type="text"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Buscar acessório..."
+          className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      {termo && porSubcategoria.length === 0 && (
+        <p className="text-center py-6 text-sm text-gray-400">
+          Nenhum acessório encontrado
+        </p>
+      )}
+
       {porSubcategoria.map(({ sub, itens: lista }) => (
         <SubcategoriaAccordion
           key={sub.id}
           titulo={sub.nome}
           qtdSelecionada={qtdSelecionada(lista)}
           tema={tema}
+          defaultAberta={!!termo}
         >
           {lista.length === 0 ? (
             <p className="text-sm text-gray-300 py-2 px-1">Nenhum item cadastrado</p>
