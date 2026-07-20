@@ -36,6 +36,35 @@ export function normalizarNumero(numero: string): string {
 }
 
 /**
+ * Verifica se a instância do Z-API está ativa e conectada.
+ * Retorna um motivo quando NÃO está disponível, para exibir aviso ao usuário:
+ *   - 'nao_configurado': faltam credenciais no ambiente
+ *   - 'sem_assinatura' : a instância expirou (precisa reativar a assinatura)
+ *   - 'desconectado'   : número não está conectado (ler QR Code)
+ *   - null             : tudo certo, pode enviar
+ */
+export async function verificarConexaoWhatsApp(): Promise<
+  'nao_configurado' | 'sem_assinatura' | 'desconectado' | null
+> {
+  if (!whatsappAtivo()) return 'nao_configurado'
+  const url = `https://api.z-api.io/instances/${INSTANCE_ID}/token/${TOKEN}/status`
+  try {
+    const res = await fetch(url, {
+      headers: { ...(CLIENT_TOKEN ? { 'Client-Token': CLIENT_TOKEN } : {}) },
+    })
+    const data = await res.json().catch(() => ({}))
+    const erro = String(data?.error ?? '').toLowerCase()
+    if (erro.includes('subscribe')) return 'sem_assinatura'
+    if (data?.connected === true) return null
+    if (data?.connected === false) return 'desconectado'
+    // resposta inesperada — trata como indisponível genérico
+    return erro ? 'sem_assinatura' : 'desconectado'
+  } catch {
+    return 'desconectado'
+  }
+}
+
+/**
  * Envia uma mensagem de texto via WhatsApp.
  * Retorna true se enviada, false se a integração está inativa ou falhou.
  * Nunca lança — falhas de WhatsApp não devem quebrar o fluxo principal.

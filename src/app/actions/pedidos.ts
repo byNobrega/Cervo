@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { type ItemSelecionado } from '@/types'
 import { notificar, buscarIdsPorCargo } from '@/lib/notificacoes'
-import { whatsappAtivo, enviarImagemWhatsApp, enviarWhatsApp } from '@/lib/whatsapp'
+import { verificarConexaoWhatsApp, enviarImagemWhatsApp, enviarWhatsApp } from '@/lib/whatsapp'
 import { gerarImagemLista, type GrupoImagem } from '@/lib/listaImagem'
 import { rotuloCategoria, type ItemLista } from '@/lib/listaWhatsApp'
 import { resumoCategorias } from '@/lib/constants'
@@ -224,15 +224,27 @@ export async function enviarListaWhatsApp(
     (pedido.unidade as unknown as { nome: string } | null)?.nome ?? pedido.nome_loja ?? 'Loja'
   const criadorNome = (pedido.criador as unknown as { nome: string } | null)?.nome ?? 'Equipe'
 
-  if (!whatsappAtivo()) {
-    return {
-      ok: false,
-      mensagem: 'O envio por WhatsApp ainda não está configurado (Z-API pendente).',
-    }
-  }
   const numero = perfil?.whatsapp
   if (!numero) {
     return { ok: false, mensagem: 'Seu cadastro não tem um número de WhatsApp válido.' }
+  }
+
+  // Confere a conexão ANTES de gerar as imagens, para dar um aviso claro.
+  const problema = await verificarConexaoWhatsApp()
+  if (problema === 'nao_configurado') {
+    return { ok: false, mensagem: 'O envio por WhatsApp ainda não está configurado.' }
+  }
+  if (problema === 'sem_assinatura') {
+    return {
+      ok: false,
+      mensagem: 'O WhatsApp do sistema está inativo (assinatura do Z-API expirada). Reative para enviar listas.',
+    }
+  }
+  if (problema === 'desconectado') {
+    return {
+      ok: false,
+      mensagem: 'O WhatsApp do sistema está desconectado. Reconecte o número (QR Code) no Z-API.',
+    }
   }
 
   // Agrupa por TIPO (ex: "Capa Vidro", "Cerâmica") e, dentro dele, por marca.
