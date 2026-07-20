@@ -66,3 +66,35 @@ export function ordenarModeloNatural(a: string, b: string): number {
 
   return a.localeCompare(b, 'pt-BR')
 }
+
+// Ordenação natural GENÉRICA para nomes (ex: acessórios). Quebra o nome em
+// pedaços de texto e número e compara pedaço a pedaço, de modo que:
+//  - "SM-30" venha antes de "SM-31" e "SM-100" (número, não alfabético);
+//  - itens da mesma "linha"/prefixo fiquem agrupados ("USB-C..." juntos).
+export function ordenarNatural(a: string, b: string): number {
+  const pa = quebrar(a)
+  const pb = quebrar(b)
+  const n = Math.min(pa.length, pb.length)
+  for (let i = 0; i < n; i++) {
+    const x = pa[i]
+    const y = pb[i]
+    if (typeof x === 'number' && typeof y === 'number') {
+      if (x !== y) return x - y
+    } else {
+      const cmp = String(x).localeCompare(String(y), 'pt-BR')
+      if (cmp !== 0) return cmp
+    }
+  }
+  return pa.length - pb.length
+}
+
+// Divide "USB-C 30W" em ["usb-c ", 30, "w"] (texto minúsculo e números).
+function quebrar(s: string): (string | number)[] {
+  const partes: (string | number)[] = []
+  const regex = /(\d+)|(\D+)/g
+  let m: RegExpExecArray | null
+  while ((m = regex.exec(s.toLowerCase())) !== null) {
+    partes.push(m[1] !== undefined ? parseInt(m[1], 10) : m[2])
+  }
+  return partes
+}

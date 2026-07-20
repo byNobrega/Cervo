@@ -13,6 +13,7 @@ import { TEMA_CATEGORIA } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { ModalExcluir } from './ModalExcluir'
 import { NovaSugestaoForm } from '@/components/sugestoes/NovaSugestaoForm'
+import { ordenarNatural } from '@/lib/ordenarModelos'
 import { Plus, Package, Loader2, Search, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import { useTransition } from 'react'
 
@@ -51,7 +52,9 @@ export function AcessoriosCatalogo({ subcategorias, acessorios, cargo }: Props) 
 
   const porSubcategoria = subcategorias.map((sub) => ({
     sub,
-    itens: filtrados.filter((a) => a.subcategoria_id === sub.id),
+    itens: filtrados
+      .filter((a) => a.subcategoria_id === sub.id)
+      .sort((a, b) => ordenarNatural(a.nome, b.nome)),
   }))
   const nenhumResultado = termo && filtrados.length === 0
 

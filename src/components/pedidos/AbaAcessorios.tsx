@@ -9,6 +9,7 @@ import { Package, Check, MessageSquare, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SugestaoInlineForm } from './SugestaoInlineForm'
 import { SubcategoriaAccordion } from './SubcategoriaAccordion'
+import { ordenarNatural } from '@/lib/ordenarModelos'
 
 interface Props {
   subcategorias: SubcategoriaAcessorio[]
@@ -46,7 +47,9 @@ export function AbaAcessorios({ subcategorias, acessorios, tema }: Props) {
 
   const porSubcategoria = subcategorias.map((sub) => ({
     sub,
-    itens: acessorios.filter((a) => a.subcategoria_id === sub.id),
+    itens: acessorios
+      .filter((a) => a.subcategoria_id === sub.id)
+      .sort((a, b) => ordenarNatural(a.nome, b.nome)),
   }))
 
   function qtdSelecionada(lista: Acessorio[]) {
