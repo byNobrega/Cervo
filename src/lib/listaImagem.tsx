@@ -28,9 +28,10 @@ async function carregarFonte(): Promise<Buffer> {
 
 export interface GrupoImagem {
   titulo: string // ex: "Capa Vidro"
-  fotoUrl?: string | null // foto do produto (cadastrada no catálogo)
-  // Modelos agrupados por marca, na ordem de exibição
-  marcas: { marca: string; modelos: string[] }[]
+  fotoUrl?: string | null // foto padrão (fallback)
+  // Modelos agrupados por marca, na ordem de exibição. Cada bloco pode ter a
+  // sua própria foto de referência (ex: iPhone usa uma capa, Samsung outra).
+  marcas: { marca: string; modelos: string[]; fotoUrl?: string | null }[]
 }
 
 const LARGURA = 900
@@ -53,7 +54,30 @@ async function fotoParaDataUri(url: string): Promise<string | null> {
 
 export async function gerarImagemLista(grupo: GrupoImagem): Promise<ArrayBuffer> {
   const fonte = await carregarFonte()
-  const fotoData = grupo.fotoUrl ? await fotoParaDataUri(grupo.fotoUrl) : null
+
+  // Converte cada foto usada uma única vez (cache por URL).
+  const cacheFoto = new Map<string, string | null>()
+  async function foto(url?: string | null): Promise<string | null> {
+    if (!url) return null
+    if (!cacheFoto.has(url)) cacheFoto.set(url, await fotoParaDataUri(url))
+    return cacheFoto.get(url) ?? null
+  }
+
+  // Para cada bloco de marca, resolve a foto (a do bloco ou a padrão do grupo).
+  // Marca a foto só quando ela MUDA em relação ao bloco anterior, para não
+  // repetir a mesma imagem em blocos consecutivos.
+  const blocos: { marca: string; modelos: string[]; foto: string | null }[] = []
+  let ultimaUrl: string | null | undefined = undefined
+  for (const b of grupo.marcas) {
+    const url = b.fotoUrl ?? grupo.fotoUrl ?? null
+    const mostraFoto = url !== ultimaUrl
+    ultimaUrl = url
+    blocos.push({
+      marca: b.marca,
+      modelos: b.modelos,
+      foto: mostraFoto ? await foto(url) : null,
+    })
+  }
 
   // Altura cresce com a quantidade de linhas (título + modelos + espaços)
   const totalLinhas = grupo.marcas.reduce((acc, m) => acc + m.modelos.length + 1, 0)
@@ -67,61 +91,54 @@ export async function gerarImagemLista(grupo: GrupoImagem): Promise<ArrayBuffer>
           height: altura,
           background: '#000',
           display: 'flex',
+          flexDirection: 'column',
           padding: 40,
           fontFamily: 'Noto Sans',
         }}
       >
-        {/* Coluna da esquerda: título + modelos */}
-        <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-          <div
-            style={{
-              color: '#fff',
-              fontSize: 48,
-              fontWeight: 700,
-              marginBottom: 24,
-            }}
-          >
-            {grupo.titulo}
-          </div>
+        <div style={{ color: '#fff', fontSize: 48, fontWeight: 700, marginBottom: 20 }}>
+          {grupo.titulo}
+        </div>
 
-          {grupo.marcas.map((bloco) => (
-            <div key={bloco.marca} style={{ display: 'flex', flexDirection: 'column' }}>
-              {/* Marca só aparece quando há mais de uma, para não poluir */}
+        {blocos.map((bloco, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', width: '100%' }}>
+            {/* Modelos do bloco (coluna esquerda) */}
+            <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
               {grupo.marcas.length > 1 && (
                 <div
                   style={{
                     color: '#9ca3af',
                     fontSize: 24,
                     fontWeight: 600,
-                    marginTop: 16,
-                    marginBottom: 6,
+                    marginTop: 14,
+                    marginBottom: 4,
                   }}
                 >
                   {bloco.marca}
                 </div>
               )}
               {bloco.modelos.map((m) => (
-                <div key={m} style={{ color: '#fff', fontSize: 30, lineHeight: 1.5 }}>
+                <div key={m} style={{ color: '#fff', fontSize: 30, lineHeight: 1.45 }}>
                   {m}
                 </div>
               ))}
             </div>
-          ))}
-        </div>
 
-        {/* Foto do produto no canto superior direito (convertida para JPEG) */}
-        {fotoData ? (
-          <div style={{ display: 'flex', width: 340, height: 340 }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={fotoData}
-              alt=""
-              width={340}
-              height={340}
-              style={{ objectFit: 'cover', borderRadius: 12 }}
-            />
+            {/* Foto de referência ao lado (só quando a foto muda de marca) */}
+            {bloco.foto ? (
+              <div style={{ display: 'flex', width: 300, height: 300, marginLeft: 20 }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={bloco.foto}
+                  alt=""
+                  width={300}
+                  height={300}
+                  style={{ objectFit: 'cover', borderRadius: 12 }}
+                />
+              </div>
+            ) : null}
           </div>
-        ) : null}
+        ))}
       </div>
     ),
     {

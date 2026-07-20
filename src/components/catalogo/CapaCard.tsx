@@ -14,12 +14,14 @@ export function CapaCard({
   id,
   nome,
   fotoUrl,
+  fotoUrlOutras,
   marcas,
   podeGerenciar,
 }: {
   id: string
   nome: string
   fotoUrl: string | null
+  fotoUrlOutras: string | null
   marcas: string[]
   podeGerenciar: boolean
 }) {
@@ -28,12 +30,19 @@ export function CapaCard({
   const [isPending, startTransition] = useTransition()
   const [valorNome, setValorNome] = useState(nome)
   const [valorFoto, setValorFoto] = useState(fotoUrl ?? '')
+  const [valorFotoOutras, setValorFotoOutras] = useState(fotoUrlOutras ?? '')
   const router = useRouter()
 
   function salvar() {
     startTransition(async () => {
       // null em marcaIds = mantém os vínculos de marca como estão
-      await editarSubcategoriaCapa(id, valorNome.trim() || nome, valorFoto || null, null)
+      await editarSubcategoriaCapa(
+        id,
+        valorNome.trim() || nome,
+        valorFoto || null,
+        null,
+        valorFotoOutras || null
+      )
       setEditando(false)
       router.refresh() // recarrega a lista para refletir a mudança
     })
@@ -86,12 +95,18 @@ export function CapaCard({
 
       {editando && (
         <div className="px-3 pb-3 pt-1 border-t border-gray-100 space-y-2">
-          <div className="pt-2">
+          <div className="pt-2 flex gap-4 flex-wrap">
             <PhotoUpload
               value={valorFoto}
               onChange={setValorFoto}
               pasta="capas"
-              label="Foto (usada na lista do WhatsApp)"
+              label="Foto — iPhone / Apple"
+            />
+            <PhotoUpload
+              value={valorFotoOutras}
+              onChange={setValorFotoOutras}
+              pasta="capas"
+              label="Foto — outras marcas"
             />
           </div>
           <input

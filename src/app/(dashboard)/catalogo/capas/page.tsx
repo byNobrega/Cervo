@@ -40,6 +40,7 @@ export default async function CapasPage() {
               id={sub.id}
               nome={sub.nome}
               fotoUrl={sub.foto_url}
+              fotoUrlOutras={sub.foto_url_outras ?? null}
               marcas={marcas}
               podeGerenciar={podeGerenciar}
             />

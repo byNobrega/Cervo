@@ -202,7 +202,7 @@ export async function enviarListaWhatsApp(
         nome_snapshot,
         acessorio:acessorios(subcategoria:subcategorias_acessorio(nome)),
         modelo:modelos_celular(nome, ordem, marca:marcas_celular(nome)),
-        subcapa:subcategorias_capa(nome, foto_url),
+        subcapa:subcategorias_capa(nome, foto_url, foto_url_outras),
         peli_maq:tipos_pelicula_maquina(nome, foto_url),
         peli_trad:tipos_pelicula_tradicional(nome)
       )
@@ -301,7 +301,7 @@ export async function enviarListaWhatsApp(
 
 // Item com os joins de tipo usados na montagem da imagem.
 interface ItemComTipo extends ItemLista {
-  subcapa?: { nome: string; foto_url: string | null } | null
+  subcapa?: { nome: string; foto_url: string | null; foto_url_outras: string | null } | null
   peli_maq?: { nome: string; foto_url: string | null } | null
   peli_trad?: { nome: string } | null
 }
@@ -312,23 +312,32 @@ function dataCurta(iso: string): string {
 }
 
 // Agrupa os itens por tipo (subcategoria de capa / tipo de película) e, dentro
-// de cada tipo, por marca — na ordem em que aparecem.
+// de cada tipo, por marca. Cada tipo guarda a foto do iPhone/Apple e a foto das
+// demais marcas (capas), para a imagem mostrar a referência certa por marca.
 function agruparPorTipo(itens: ItemComTipo[]): GrupoImagem[] {
-  const porTipo = new Map<string, { foto: string | null; marcas: Map<string, string[]> }>()
+  const porTipo = new Map<
+    string,
+    { fotoApple: string | null; fotoOutras: string | null; marcas: Map<string, string[]> }
+  >()
 
   for (const item of itens) {
-    // Nome e foto do tipo, conforme a categoria
     const tipoNome =
       item.subcapa?.nome ??
       item.peli_maq?.nome ??
       item.peli_trad?.nome ??
       item.nome_snapshot.split('—')[0]?.trim() ??
       'Itens'
-    const foto = item.subcapa?.foto_url ?? item.peli_maq?.foto_url ?? null
+    // foto_url = referência para Apple; foto_url_outras = demais marcas.
+    // Películas usam a mesma foto para todas as marcas.
+    const fotoApple = item.subcapa?.foto_url ?? item.peli_maq?.foto_url ?? null
+    const fotoOutras = item.subcapa?.foto_url_outras ?? item.peli_maq?.foto_url ?? null
 
-    if (!porTipo.has(tipoNome)) porTipo.set(tipoNome, { foto, marcas: new Map() })
+    if (!porTipo.has(tipoNome)) {
+      porTipo.set(tipoNome, { fotoApple, fotoOutras, marcas: new Map() })
+    }
     const grupo = porTipo.get(tipoNome)!
-    if (!grupo.foto && foto) grupo.foto = foto
+    if (!grupo.fotoApple && fotoApple) grupo.fotoApple = fotoApple
+    if (!grupo.fotoOutras && fotoOutras) grupo.fotoOutras = fotoOutras
 
     const marca = item.modelo?.marca?.nome ?? 'Outros'
     const nomeModelo = item.modelo?.nome ?? item.nome_snapshot
@@ -336,7 +345,6 @@ function agruparPorTipo(itens: ItemComTipo[]): GrupoImagem[] {
     grupo.marcas.get(marca)!.push(nomeModelo)
   }
 
-  // Ordem de exibição das marcas (mesma do resto do app).
   const ORDEM_MARCAS = ['Apple', 'Samsung', 'Motorola', 'Xiaomi', 'Redmi', 'Realme']
   const ordemDaMarca = (m: string) => {
     const i = ORDEM_MARCAS.indexOf(m)
@@ -345,14 +353,13 @@ function agruparPorTipo(itens: ItemComTipo[]): GrupoImagem[] {
 
   return Array.from(porTipo.entries()).map(([titulo, dados]) => ({
     titulo,
-    fotoUrl: dados.foto,
+    fotoUrl: dados.fotoApple ?? dados.fotoOutras, // fallback geral
     marcas: Array.from(dados.marcas.entries())
-      // marcas na ordem padrão
       .sort((a, b) => ordemDaMarca(a[0]) - ordemDaMarca(b[0]))
       .map(([marca, modelos]) => ({
         marca,
-        // modelos em ordem natural (16 < 16e < 16 Pro < 17...), independente
-        // da ordem em que foram clicados ao montar o pedido
+        // Apple usa a foto do iPhone; as demais usam a foto "outras".
+        fotoUrl: marca === 'Apple' ? dados.fotoApple : dados.fotoOutras ?? dados.fotoApple,
         modelos: [...modelos].sort(ordenarModeloNatural),
       })),
   }))

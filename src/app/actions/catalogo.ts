@@ -90,11 +90,14 @@ export async function editarSubcategoriaCapa(
   nome: string,
   fotoUrl: string | null,
   // null = não mexer nas marcas; array = substituir os vínculos por estes
-  marcaIds: string[] | null
+  marcaIds: string[] | null,
+  fotoUrlOutras?: string | null
 ) {
   await exigirGestor()
   const admin = await createAdminClient()
-  await admin.from('subcategorias_capa').update({ nome, foto_url: fotoUrl }).eq('id', id)
+  const update: Record<string, unknown> = { nome, foto_url: fotoUrl }
+  if (fotoUrlOutras !== undefined) update.foto_url_outras = fotoUrlOutras
+  await admin.from('subcategorias_capa').update(update).eq('id', id)
   if (marcaIds !== null) {
     await admin.from('subcategoria_capa_marcas').delete().eq('subcategoria_id', id)
     if (marcaIds.length > 0) {
