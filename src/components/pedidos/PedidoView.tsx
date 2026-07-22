@@ -30,7 +30,9 @@ interface Props {
   userId: string
 }
 
-const SEM_SUBCATEGORIA = 'Outros'
+// Rótulo de fallback quando um item não tem subcategoria/tipo identificável.
+// Usa "Acessórios Variados" (a subcategoria real) em vez de um "Outros" solto.
+const SEM_SUBCATEGORIA = 'Acessórios Variados'
 
 // Categorias compradas de fornecedor externo (via WhatsApp).
 // Só estas ganham o botão "Enviar lista para o WhatsApp".

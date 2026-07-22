@@ -37,7 +37,13 @@ export default async function HistoricoDetalhe({ params }: { params: { id: strin
   const ehFuncionarioCriador =
     perfil?.cargo === 'funcionario' && pedido.criado_por === user.id
 
-  const itens = pedido.itens as { id: string; status: string; categoria: string; nome_snapshot: string; foto_url_snapshot: string | null; observacao: string | null }[] ?? []
+  const itens = pedido.itens as {
+    id: string; status: string; categoria: string; nome_snapshot: string
+    foto_url_snapshot: string | null; observacao: string | null
+    acessorio_id?: string | null; sugestao_id?: string | null; subcapa_id?: string | null
+    modelo_id?: string | null; tipo_peli_maq_id?: string | null
+    tipo_peli_trad_id?: string | null; material_id?: string | null
+  }[] ?? []
   const total = itens.length
   const comprados = itens.filter((i) => i.status === 'comprado').length
   const naoTem = itens.filter((i) => i.status === 'nao_tem').length

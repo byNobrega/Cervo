@@ -24,7 +24,7 @@ export interface ItemLista {
   acessorio?: { subcategoria?: { nome: string } | null } | null
 }
 
-const SEM_SUBCATEGORIA = 'Outros'
+const SEM_SUBCATEGORIA = 'Acessórios Variados'
 const ORDEM_MARCAS = ['Apple', 'Samsung', 'Motorola', 'Xiaomi', 'Redmi', 'Realme']
 const MARCAS_SEM_PREFIXO = new Set(['Apple', 'Samsung', 'Motorola'])
 
