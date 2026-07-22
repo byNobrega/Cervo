@@ -46,6 +46,7 @@ export async function criarPedido(
     material_id: item.materialId ?? null,
     nome_snapshot: item.nome,
     foto_url_snapshot: item.fotoUrl,
+    subgrupo_snapshot: item.subgrupo ?? null,
     observacao: item.observacao || null,
     status: 'pendente',
   }))

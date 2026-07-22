@@ -49,13 +49,17 @@ function nomeSubcategoria(item: PedidoItemComSub): string {
 // - capa / pelicula_tradicional: o tipo, extraído do nome "Tipo — Marca Modelo"
 // - pelicula_maquina: agrupa todas em "Película Máquina"
 function subgrupoDoItem(item: PedidoItemComSub): string | null {
+  if (item.categoria === 'material') return null // material → lista direta
+  // 1) Preferência: o subgrupo gravado no item (não depende do JOIN)
+  if (item.subgrupo_snapshot) return item.subgrupo_snapshot
+  // 2) Fallback para pedidos antigos (sem snapshot):
   if (item.categoria === 'acessorio') return nomeSubcategoria(item)
   if (item.categoria === 'capa' || item.categoria === 'pelicula_tradicional') {
     const tipo = item.nome_snapshot.split('—')[0]?.trim()
     return tipo || SEM_SUBCATEGORIA
   }
   if (item.categoria === 'pelicula_maquina') return 'Película Máquina'
-  return null // material → lista direta
+  return null
 }
 
 // Remove o prefixo "Subgrupo — " do nome, já que o subgrupo aparece no cabeçalho.

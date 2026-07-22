@@ -40,6 +40,7 @@ export default async function HistoricoDetalhe({ params }: { params: { id: strin
   const itens = pedido.itens as {
     id: string; status: string; categoria: string; nome_snapshot: string
     foto_url_snapshot: string | null; observacao: string | null
+    subgrupo_snapshot?: string | null
     acessorio_id?: string | null; sugestao_id?: string | null; subcapa_id?: string | null
     modelo_id?: string | null; tipo_peli_maq_id?: string | null
     tipo_peli_trad_id?: string | null; material_id?: string | null

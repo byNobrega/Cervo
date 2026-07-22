@@ -44,6 +44,7 @@ export function AbaPeliculas({ maquina, tradicionais, modelos, tema }: Props) {
         fotoUrl: pelicula.foto_url,
         observacao: '',
         tipoPeliMaqId: pelicula.id,
+        subgrupo: 'Película Máquina',
       })
     }
   }
@@ -60,6 +61,7 @@ export function AbaPeliculas({ maquina, tradicionais, modelos, tema }: Props) {
         observacao: '',
         tipoPeliTradId: tipo.id,
         modeloId: modelo.id,
+        subgrupo: tipo.nome,
       })
     }
   }

@@ -43,6 +43,7 @@ export function AbaAcessorios({ subcategorias, acessorios, tema }: Props) {
         fotoUrl: acessorio.foto_url,
         observacao: '',
         acessorioId: acessorio.id,
+        subgrupo: acessorio.subcategoria?.nome ?? undefined,
       })
     }
   }

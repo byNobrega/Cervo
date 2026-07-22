@@ -14,6 +14,7 @@ interface Props {
     categoria: string
     nome_snapshot: string
     foto_url_snapshot: string | null
+    subgrupo_snapshot?: string | null
     observacao: string | null
     // IDs de referência (para os itens voltarem às categorias certas e
     // serem reconhecidos como já selecionados no carrinho)
@@ -38,6 +39,7 @@ export function ReutilizarPedidoButton({ itens }: Props) {
       nome: item.nome_snapshot,
       fotoUrl: item.foto_url_snapshot,
       observacao: item.observacao ?? '',
+      subgrupo: item.subgrupo_snapshot ?? undefined,
       // Repassa os vínculos para o carrinho reconhecer categoria/subcategoria
       acessorioId: item.acessorio_id ?? undefined,
       sugestaoId: item.sugestao_id ?? undefined,

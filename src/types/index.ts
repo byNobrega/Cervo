@@ -156,6 +156,7 @@ export interface PedidoItem {
   material_id: string | null
   nome_snapshot: string
   foto_url_snapshot: string | null
+  subgrupo_snapshot?: string | null
   observacao: string | null
   status: StatusItem
   created_at: string
@@ -201,6 +202,9 @@ export interface ItemSelecionado {
   tipoPeliMaqId?: string
   tipoPeliTradId?: string
   materialId?: string
+  // nome do subgrupo (subcategoria de acessório / tipo de capa/película),
+  // gravado no item para a visualização não depender do JOIN com o catálogo
+  subgrupo?: string
   // flag visual
   isPendenteSugestao?: boolean
 }

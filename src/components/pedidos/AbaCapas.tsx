@@ -45,6 +45,7 @@ export function AbaCapas({ subcategorias, modelos, tema }: Props) {
         observacao: '',
         subcapaId: subcat.id,
         modeloId: modelo.id,
+        subgrupo: subcat.nome,
       })
     }
   }
