@@ -24,12 +24,24 @@ export function AbaAcessorios({ subcategorias, acessorios, tema }: Props) {
   const [mostrarSugestao, setMostrarSugestao] = useState(false)
   const [busca, setBusca] = useState('')
 
+  // Reconhece o item pelo ID; como fallback (itens vindos de pedidos antigos
+  // sem acessorio_id), reconhece pelo nome.
+  function itemDoCarrinho(acessorio: Acessorio) {
+    return itens.find(
+      (i) =>
+        (i.acessorioId && i.acessorioId === acessorio.id) ||
+        (!i.acessorioId && i.categoria === 'acessorio' && i.nome === acessorio.nome)
+    )
+  }
+
   function isSelected(acessorioId: string) {
-    return itens.some((i) => i.acessorioId === acessorioId)
+    const ac = acessorios.find((a) => a.id === acessorioId)
+    return ac ? !!itemDoCarrinho(ac) : false
   }
 
   function getTempId(acessorioId: string) {
-    return itens.find((i) => i.acessorioId === acessorioId)?.tempId
+    const ac = acessorios.find((a) => a.id === acessorioId)
+    return ac ? itemDoCarrinho(ac)?.tempId : undefined
   }
 
   function toggle(acessorio: Acessorio) {

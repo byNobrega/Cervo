@@ -22,12 +22,30 @@ export function AbaCapas({ subcategorias, modelos, tema }: Props) {
   const [mostrarSugestao, setMostrarSugestao] = useState(false)
   const { itens, adicionarItem, removerItem } = usePedidoStore()
 
+  // Nome padrão do item de capa (usado no fallback por nome, para pedidos
+  // antigos cujos itens não têm subcapaId/modeloId).
+  function nomeCapa(subcat: SubcategoriaCapa, modelo: ModeloCelular & { marca: MarcaCelular }) {
+    return `${subcat.nome} — ${modelo.marca?.nome ?? ''} ${modelo.nome}`
+  }
+
+  function itemDoCarrinho(subcat: SubcategoriaCapa, modelo: ModeloCelular & { marca: MarcaCelular }) {
+    return itens.find(
+      (i) =>
+        (i.subcapaId === subcat.id && i.modeloId === modelo.id) ||
+        (!i.subcapaId && i.categoria === 'capa' && i.nome === nomeCapa(subcat, modelo))
+    )
+  }
+
   function isSelected(subcapaId: string, modeloId: string) {
-    return itens.some((i) => i.subcapaId === subcapaId && i.modeloId === modeloId)
+    const subcat = subcategorias.find((s) => s.id === subcapaId)
+    const modelo = modelos.find((m) => m.id === modeloId)
+    return subcat && modelo ? !!itemDoCarrinho(subcat, modelo) : false
   }
 
   function getTempId(subcapaId: string, modeloId: string) {
-    return itens.find((i) => i.subcapaId === subcapaId && i.modeloId === modeloId)?.tempId
+    const subcat = subcategorias.find((s) => s.id === subcapaId)
+    const modelo = modelos.find((m) => m.id === modeloId)
+    return subcat && modelo ? itemDoCarrinho(subcat, modelo)?.tempId : undefined
   }
 
   function toggle(
@@ -40,7 +58,7 @@ export function AbaCapas({ subcategorias, modelos, tema }: Props) {
     } else {
       adicionarItem({
         categoria: 'capa',
-        nome: `${subcat.nome} — ${modelo.marca?.nome ?? ''} ${modelo.nome}`,
+        nome: nomeCapa(subcat, modelo),
         fotoUrl: subcat.foto_url,
         observacao: '',
         subcapaId: subcat.id,

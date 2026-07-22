@@ -26,11 +26,24 @@ export function AbaPeliculas({ maquina, tradicionais, modelos, tema }: Props) {
     .filter(Boolean) as MarcaCelular[]
 
   function isMaquinaSelected(id: string) {
-    return itens.some((i) => i.tipoPeliMaqId === id)
+    const p = maquina.find((m) => m.id === id)
+    return itens.some(
+      (i) =>
+        (i.tipoPeliMaqId && i.tipoPeliMaqId === id) ||
+        (!i.tipoPeliMaqId && p && i.categoria === 'pelicula_maquina' &&
+          i.nome === `Película Máquina — ${p.nome}`)
+    )
   }
 
   function isTradSelected(tipoId: string, modeloId: string) {
-    return itens.some((i) => i.tipoPeliTradId === tipoId && i.modeloId === modeloId)
+    const tipo = tradicionais.find((t) => t.id === tipoId)
+    const modelo = modelos.find((m) => m.id === modeloId)
+    return itens.some(
+      (i) =>
+        (i.tipoPeliTradId === tipoId && i.modeloId === modeloId) ||
+        (!i.tipoPeliTradId && tipo && modelo && i.categoria === 'pelicula_tradicional' &&
+          i.nome === `${tipo.nome} — ${modelo.marca?.nome ?? ''} ${modelo.nome}`)
+    )
   }
 
   function toggleMaquina(pelicula: TipoPeliculaMaquina) {

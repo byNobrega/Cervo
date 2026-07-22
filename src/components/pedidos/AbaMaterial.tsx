@@ -23,12 +23,22 @@ export function AbaMaterial({ materiais, tema }: Props) {
 
   const materiaisFiltrados = filtrarPorBusca(materiais, busca.trim(), (m) => [m.nome])
 
+  function itemDoCarrinho(mat: MaterialLoja) {
+    return itens.find(
+      (i) =>
+        (i.materialId && i.materialId === mat.id) ||
+        (!i.materialId && i.categoria === 'material' && i.nome === mat.nome)
+    )
+  }
+
   function isSelected(materialId: string) {
-    return itens.some((i) => i.materialId === materialId)
+    const mat = materiais.find((m) => m.id === materialId)
+    return mat ? !!itemDoCarrinho(mat) : false
   }
 
   function getTempId(materialId: string) {
-    return itens.find((i) => i.materialId === materialId)?.tempId
+    const mat = materiais.find((m) => m.id === materialId)
+    return mat ? itemDoCarrinho(mat)?.tempId : undefined
   }
 
   function toggle(material: MaterialLoja) {
