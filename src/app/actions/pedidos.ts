@@ -9,6 +9,7 @@ import { gerarImagemLista, type GrupoImagem } from '@/lib/listaImagem'
 import { rotuloCategoria, type ItemLista } from '@/lib/listaWhatsApp'
 import { resumoCategorias } from '@/lib/constants'
 import { ordenarModeloNatural } from '@/lib/ordenarModelos'
+import { dataCurtaBR } from '@/lib/utils'
 
 export async function criarPedido(
   userId: string,
@@ -261,7 +262,7 @@ export async function enviarListaWhatsApp(
   const tipos = grupos.map((g) => g.titulo).join(', ')
   await enviarWhatsApp(
     numero,
-    `*${nomeUnidade}*\nLista de ${rotuloCategoria(categoria)} — por ${criadorNome} · ${dataCurta(pedido.created_at)}\n${tipos}`
+    `*${nomeUnidade}*\nLista de ${rotuloCategoria(categoria)} — por ${criadorNome} · ${dataCurtaBR(pedido.created_at)}\n${tipos}`
   )
 
   let enviados = 0
@@ -317,11 +318,6 @@ interface ItemComTipo extends ItemLista {
   subcapa?: { nome: string; foto_url: string | null; foto_url_outras: string | null } | null
   peli_maq?: { nome: string; foto_url: string | null } | null
   peli_trad?: { nome: string; foto_url: string | null } | null
-}
-
-function dataCurta(iso: string): string {
-  const d = new Date(iso)
-  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`
 }
 
 // Agrupa os itens por tipo (subcategoria de capa / tipo de película) e, dentro
