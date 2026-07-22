@@ -205,7 +205,7 @@ export async function enviarListaWhatsApp(
         modelo:modelos_celular(nome, ordem, marca:marcas_celular(nome)),
         subcapa:subcategorias_capa(nome, foto_url, foto_url_outras),
         peli_maq:tipos_pelicula_maquina(nome, foto_url),
-        peli_trad:tipos_pelicula_tradicional(nome)
+        peli_trad:tipos_pelicula_tradicional(nome, foto_url)
       )
     `)
     .eq('id', pedidoId)
@@ -316,7 +316,7 @@ export async function enviarListaWhatsApp(
 interface ItemComTipo extends ItemLista {
   subcapa?: { nome: string; foto_url: string | null; foto_url_outras: string | null } | null
   peli_maq?: { nome: string; foto_url: string | null } | null
-  peli_trad?: { nome: string } | null
+  peli_trad?: { nome: string; foto_url: string | null } | null
 }
 
 function dataCurta(iso: string): string {
@@ -342,8 +342,9 @@ function agruparPorTipo(itens: ItemComTipo[]): GrupoImagem[] {
       'Itens'
     // foto_url = referência para Apple; foto_url_outras = demais marcas.
     // Películas usam a mesma foto para todas as marcas.
-    const fotoApple = item.subcapa?.foto_url ?? item.peli_maq?.foto_url ?? null
-    const fotoOutras = item.subcapa?.foto_url_outras ?? item.peli_maq?.foto_url ?? null
+    const fotoPeli = item.peli_maq?.foto_url ?? item.peli_trad?.foto_url ?? null
+    const fotoApple = item.subcapa?.foto_url ?? fotoPeli ?? null
+    const fotoOutras = item.subcapa?.foto_url_outras ?? fotoPeli ?? null
 
     if (!porTipo.has(tipoNome)) {
       porTipo.set(tipoNome, { fotoApple, fotoOutras, marcas: new Map() })

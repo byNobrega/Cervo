@@ -70,6 +70,7 @@ export default async function PeliculasPage() {
                     tabela="tradicional"
                     id={tipo.id}
                     nome={tipo.nome}
+                    fotoUrl={tipo.foto_url}
                     podeGerenciar={podeGerenciar}
                   />
                 </div>

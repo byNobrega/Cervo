@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { Shield, Pencil, Trash2, Loader2 } from 'lucide-react'
 import { editarTipoPelicula, excluirTipoPelicula } from '@/app/actions/catalogo'
 import { ModalExcluir } from './ModalExcluir'
+import { PhotoUpload } from '@/components/shared/PhotoUpload'
 
 // Card de um TIPO de película (Máquina ou Tradicional), com editar (nome) e excluir.
 // Usado no cabeçalho de cada tipo no catálogo de películas.
@@ -26,11 +27,12 @@ export function TipoPeliculaCard({
   const [modalExcluir, setModalExcluir] = useState(false)
   const [isPending, startTransition] = useTransition()
   const [valorNome, setValorNome] = useState(nome)
+  const [valorFoto, setValorFoto] = useState(fotoUrl ?? '')
   const router = useRouter()
 
   function salvar() {
     startTransition(async () => {
-      await editarTipoPelicula(tabela, id, valorNome.trim() || nome)
+      await editarTipoPelicula(tabela, id, valorNome.trim() || nome, valorFoto || null)
       setEditando(false)
       router.refresh()
     })
@@ -79,29 +81,37 @@ export function TipoPeliculaCard({
       </div>
 
       {editando && (
-        <div className="flex gap-2 mt-2">
-          <input
-            value={valorNome}
-            onChange={(e) => setValorNome(e.target.value)}
-            aria-label="Nome do tipo de película"
-            className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        <div className="mt-2 space-y-2">
+          <PhotoUpload
+            value={valorFoto}
+            onChange={setValorFoto}
+            pasta="peliculas"
+            label="Foto (usada na lista do WhatsApp)"
           />
-          <button
-            type="button"
-            onClick={salvar}
-            disabled={isPending}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-          >
-            {isPending && <Loader2 size={14} className="animate-spin" />}
-            Salvar
-          </button>
-          <button
-            type="button"
-            onClick={() => setEditando(false)}
-            className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200"
-          >
-            Cancelar
-          </button>
+          <div className="flex gap-2">
+            <input
+              value={valorNome}
+              onChange={(e) => setValorNome(e.target.value)}
+              aria-label="Nome do tipo de película"
+              className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <button
+              type="button"
+              onClick={salvar}
+              disabled={isPending}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+            >
+              {isPending && <Loader2 size={14} className="animate-spin" />}
+              Salvar
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditando(false)}
+              className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-sm hover:bg-gray-200"
+            >
+              Cancelar
+            </button>
+          </div>
         </div>
       )}
 

@@ -123,12 +123,15 @@ export async function excluirSubcategoriaCapa(id: string) {
 export async function editarTipoPelicula(
   tabela: 'maquina' | 'tradicional',
   id: string,
-  nome: string
+  nome: string,
+  fotoUrl?: string | null
 ) {
   await exigirGestor()
   const admin = await createAdminClient()
   const t = tabela === 'maquina' ? 'tipos_pelicula_maquina' : 'tipos_pelicula_tradicional'
-  await admin.from(t).update({ nome }).eq('id', id)
+  const update: Record<string, unknown> = { nome }
+  if (fotoUrl !== undefined) update.foto_url = fotoUrl
+  await admin.from(t).update(update).eq('id', id)
   revalidatePath('/catalogo/peliculas')
 }
 
