@@ -96,7 +96,15 @@ export async function gerarImagemLista(grupo: GrupoImagem): Promise<ArrayBuffer>
           fontFamily: 'Noto Sans',
         }}
       >
-        <div style={{ color: '#fff', fontSize: 48, fontWeight: 700, marginBottom: 20 }}>
+        <div
+          style={{
+            display: 'flex',
+            color: '#fff',
+            fontSize: 48,
+            fontWeight: 700,
+            paddingBottom: 28,
+          }}
+        >
           {grupo.titulo}
         </div>
 
@@ -107,18 +115,21 @@ export async function gerarImagemLista(grupo: GrupoImagem): Promise<ArrayBuffer>
               {grupo.marcas.length > 1 && (
                 <div
                   style={{
+                    display: 'flex',
                     color: '#9ca3af',
                     fontSize: 24,
                     fontWeight: 600,
-                    marginTop: 14,
-                    marginBottom: 4,
+                    // primeiro bloco não precisa de margem no topo (o título já
+                    // tem paddingBottom); os demais ganham um respiro maior
+                    paddingTop: i === 0 ? 0 : 22,
+                    paddingBottom: 8,
                   }}
                 >
                   {bloco.marca}
                 </div>
               )}
               {bloco.modelos.map((m) => (
-                <div key={m} style={{ color: '#fff', fontSize: 30, lineHeight: 1.45 }}>
+                <div key={m} style={{ display: 'flex', color: '#fff', fontSize: 30, lineHeight: 1.5 }}>
                   {m}
                 </div>
               ))}
