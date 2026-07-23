@@ -33,6 +33,11 @@ export function CapaCard({
   const [valorFotoOutras, setValorFotoOutras] = useState(fotoUrlOutras ?? '')
   const router = useRouter()
 
+  // Só a Capa Vidro tem foto de referência diferente por marca (a caixa do
+  // iPhone difere da de Samsung/Motorola). Nas demais capas a foto é a mesma
+  // para todas as marcas, então o rótulo "iPhone / Apple" não se aplica.
+  const ehVidro = /vidro/i.test(nome)
+
   function salvar() {
     startTransition(async () => {
       // null em marcaIds = mantém os vínculos de marca como estão
@@ -100,13 +105,13 @@ export function CapaCard({
               value={valorFoto}
               onChange={setValorFoto}
               pasta="capas"
-              label="Foto — iPhone / Apple"
+              label={ehVidro ? 'Foto — iPhone / Apple' : 'Foto'}
             />
             <PhotoUpload
               value={valorFotoOutras}
               onChange={setValorFotoOutras}
               pasta="capas"
-              label="Foto — outras marcas"
+              label={ehVidro ? 'Foto — outras marcas' : 'Foto — outras marcas (opcional)'}
             />
           </div>
           <input
