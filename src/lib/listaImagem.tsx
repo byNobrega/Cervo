@@ -35,6 +35,7 @@ export interface GrupoImagem {
 }
 
 const LARGURA = 900
+const FOTO = 360 // lado da foto de referência (px)
 
 // Baixa a foto do produto e converte para JPEG (data URI). O @vercel/og não
 // renderiza WebP; convertendo garantimos que a foto apareça na imagem.
@@ -79,9 +80,17 @@ export async function gerarImagemLista(grupo: GrupoImagem): Promise<ArrayBuffer>
     })
   }
 
-  // Altura cresce com a quantidade de linhas (título + modelos + espaços)
-  const totalLinhas = grupo.marcas.reduce((acc, m) => acc + m.modelos.length + 1, 0)
-  const altura = Math.max(600, 160 + totalLinhas * 46)
+  // Altura de cada bloco = o maior entre a coluna de modelos e a foto ao lado
+  // (a foto pode ser mais alta que a lista daquela marca). Sem isso, um bloco
+  // com poucos modelos e foto grande teria o rodapé cortado.
+  const temLabel = grupo.marcas.length > 1
+  const LINHA = 46
+  const alturaConteudo = blocos.reduce((acc, b) => {
+    const alturaModelos = (temLabel ? 56 : 0) + b.modelos.length * LINHA
+    const alturaFoto = b.foto ? FOTO + 24 : 0
+    return acc + Math.max(alturaModelos, alturaFoto)
+  }, 0)
+  const altura = Math.max(600, 190 + alturaConteudo)
 
   const img = new ImageResponse(
     (
@@ -102,7 +111,8 @@ export async function gerarImagemLista(grupo: GrupoImagem): Promise<ArrayBuffer>
             color: '#fff',
             fontSize: 48,
             fontWeight: 700,
-            paddingBottom: 28,
+            lineHeight: 1.1,
+            paddingBottom: 48,
           }}
         >
           {grupo.titulo}
@@ -119,9 +129,8 @@ export async function gerarImagemLista(grupo: GrupoImagem): Promise<ArrayBuffer>
                     color: '#9ca3af',
                     fontSize: 24,
                     fontWeight: 600,
-                    // primeiro bloco não precisa de margem no topo (o título já
-                    // tem paddingBottom); os demais ganham um respiro maior
-                    paddingTop: i === 0 ? 0 : 22,
+                    // respiro entre o título e "Apple" (1º bloco) e entre marcas
+                    paddingTop: i === 0 ? 12 : 22,
                     paddingBottom: 8,
                   }}
                 >
@@ -137,14 +146,14 @@ export async function gerarImagemLista(grupo: GrupoImagem): Promise<ArrayBuffer>
 
             {/* Foto de referência ao lado (só quando a foto muda de marca) */}
             {bloco.foto ? (
-              <div style={{ display: 'flex', width: 300, height: 300, marginLeft: 20 }}>
+              <div style={{ display: 'flex', width: FOTO, height: FOTO, marginLeft: 24 }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={bloco.foto}
                   alt=""
-                  width={300}
-                  height={300}
-                  style={{ objectFit: 'cover', borderRadius: 12 }}
+                  width={FOTO}
+                  height={FOTO}
+                  style={{ objectFit: 'cover', borderRadius: 14 }}
                 />
               </div>
             ) : null}
