@@ -8,7 +8,7 @@ import { type Pedido, type PedidoItem } from '@/types'
 import { atualizarStatusItem, finalizarPedido, excluirPedido, enviarListaWhatsApp } from '@/app/actions/pedidos'
 import { CATEGORIA_LABEL, TEMA_CATEGORIA, type CategoriaPedido } from '@/lib/constants'
 import { formatDateTime } from '@/lib/utils'
-import { Check, X, Printer, Loader2, Package, AlertCircle, ChevronRight, Trash2 } from 'lucide-react'
+import { Check, X, Printer, Loader2, Package, Smartphone, AlertCircle, ChevronRight, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SubcategoriaAccordion } from './SubcategoriaAccordion'
 import { LogoUnidade } from '@/components/shared/LogoUnidade'
@@ -584,6 +584,12 @@ function ItemRow({
   const isComprado = item.status === 'comprado'
   const isNaoTem = item.status === 'nao_tem'
 
+  // Ícone de fallback (quando o item não tem foto): películas mostram um ícone
+  // de celular (a película vai na tela); as demais categorias seguem com a caixa.
+  const isPelicula =
+    item.categoria === 'pelicula_maquina' || item.categoria === 'pelicula_tradicional'
+  const IconeFallback = isPelicula ? Smartphone : Package
+
   return (
     <div className="flex items-center gap-3 p-3">
       <div className="relative w-11 h-11 rounded-lg overflow-hidden bg-gray-50 flex-shrink-0">
@@ -608,7 +614,7 @@ function ItemRow({
             )}
           </>
         ) : (
-          <Package size={16} className="absolute inset-0 m-auto text-gray-200" />
+          <IconeFallback size={16} className="absolute inset-0 m-auto text-gray-200" />
         )}
       </div>
 
