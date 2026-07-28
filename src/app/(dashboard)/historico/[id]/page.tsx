@@ -4,7 +4,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { formatDateTime } from '@/lib/utils'
 import { CATEGORIA_LABEL } from '@/lib/constants'
-import { Package, Printer, Check, X } from 'lucide-react'
+import { Package, Smartphone, Printer, Check, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ReutilizarPedidoButton } from '@/components/historico/ReutilizarPedidoButton'
 import { LogoUnidade } from '@/components/shared/LogoUnidade'
@@ -96,7 +96,11 @@ export default async function HistoricoDetalhe({ params }: { params: { id: strin
       </div>
 
       {/* Itens por categoria */}
-      {grupos.map(({ cat, label, itens: lista }) => (
+      {grupos.map(({ cat, label, itens: lista }) => {
+        // Fallback sem foto: películas mostram ícone de celular; demais, a caixa.
+        const IconeFallback =
+          cat === 'pelicula_maquina' || cat === 'pelicula_tradicional' ? Smartphone : Package
+        return (
         <section key={cat} className="mb-6">
           <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
             {label}
@@ -111,7 +115,7 @@ export default async function HistoricoDetalhe({ params }: { params: { id: strin
                         {item.foto_url_snapshot ? (
                           <Image src={item.foto_url_snapshot} alt={item.nome_snapshot} fill sizes="150px" className="object-cover" />
                         ) : (
-                          <Package size={14} className="absolute inset-0 m-auto text-gray-200" />
+                          <IconeFallback size={14} className="absolute inset-0 m-auto text-gray-200" />
                         )}
                       </div>
                     </td>
@@ -136,7 +140,8 @@ export default async function HistoricoDetalhe({ params }: { params: { id: strin
             </table>
           </div>
         </section>
-      ))}
+        )
+      })}
 
       {/* Reutilizar pedido */}
       <ReutilizarPedidoButton pedidoId={pedido.id} itens={itens} />

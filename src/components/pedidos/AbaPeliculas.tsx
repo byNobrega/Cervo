@@ -69,8 +69,10 @@ export function AbaPeliculas({ maquina, tradicionais, modelos, tema }: Props) {
     } else {
       adicionarItem({
         categoria: 'pelicula_tradicional',
+        // Grava a foto de referência do tipo (ex: Cerâmica) no item, para
+        // aparecer como miniatura na lista — igual às capas.
         nome: `${tipo.nome} — ${modelo.marca?.nome ?? ''} ${modelo.nome}`,
-        fotoUrl: null,
+        fotoUrl: tipo.foto_url,
         observacao: '',
         tipoPeliTradId: tipo.id,
         modeloId: modelo.id,

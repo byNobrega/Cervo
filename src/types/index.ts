@@ -98,6 +98,7 @@ export interface TipoPeliculaMaquina {
 export interface TipoPeliculaTradicional {
   id: string
   nome: string
+  foto_url: string | null
 }
 
 export interface MaterialLoja {
