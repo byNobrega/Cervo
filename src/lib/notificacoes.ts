@@ -7,7 +7,13 @@ export async function notificar(
   destinatarios: string[],
   tipo: TipoNotificacao,
   titulo: string,
-  opcoes?: { mensagem?: string; link?: string; payload?: Record<string, unknown> }
+  opcoes?: {
+    mensagem?: string
+    link?: string
+    payload?: Record<string, unknown>
+    /** Quando true, cria só a notificação no app (sininho) e NÃO manda no WhatsApp. */
+    semWhatsApp?: boolean
+  }
 ) {
   if (destinatarios.length === 0) return
 
@@ -23,8 +29,8 @@ export async function notificar(
   await supabase.from('notificacoes').insert(inserts)
 
   // Espelha a notificação no WhatsApp quando a integração Z-API estiver ativa.
-  // No-op silencioso enquanto não configurada.
-  if (whatsappAtivo()) {
+  // No-op silencioso enquanto não configurada, ou quando semWhatsApp foi pedido.
+  if (whatsappAtivo() && !opcoes?.semWhatsApp) {
     const { data: perfis } = await supabase
       .from('profiles')
       .select('whatsapp, whatsapp_anterior')

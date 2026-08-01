@@ -165,6 +165,7 @@ export async function adicionarItensAoPedido(
     await notificar(admin, destinatarios, 'pedido_criado', 'Itens adicionados', {
       mensagem: `${quem} adicionou ${novos.length} item(ns) a um pedido em aberto.\nNovos: ${resumoCat}.`,
       link: `/pedidos/${pedidoId}`,
+      semWhatsApp: true, // só sininho — não notifica no WhatsApp (evita spam)
     })
   } catch (e) {
     console.error('[adicionarItensAoPedido] falha ao notificar:', e)
