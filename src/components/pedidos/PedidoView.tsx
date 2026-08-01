@@ -7,8 +7,8 @@ import Link from 'next/link'
 import { type Pedido, type PedidoItem } from '@/types'
 import { atualizarStatusItem, finalizarPedido, excluirPedido, enviarListaWhatsApp } from '@/app/actions/pedidos'
 import { CATEGORIA_LABEL, TEMA_CATEGORIA, type CategoriaPedido } from '@/lib/constants'
-import { formatDateTime } from '@/lib/utils'
-import { Check, X, Printer, Loader2, Package, Smartphone, AlertCircle, ChevronRight, Trash2 } from 'lucide-react'
+import { formatDateTime, formatDate, foiAdicionadoDepois } from '@/lib/utils'
+import { Check, X, Printer, Loader2, Package, Smartphone, AlertCircle, ChevronRight, Trash2, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SubcategoriaAccordion } from './SubcategoriaAccordion'
 import { LogoUnidade } from '@/components/shared/LogoUnidade'
@@ -136,6 +136,9 @@ export function PedidoView({ pedido, cargo, userId }: Props) {
   const minutosDesdeCriacao = (Date.now() - new Date(pedido.created_at).getTime()) / 60000
   const podeExcluir = podeGerenciar || (ehCriador && minutosDesdeCriacao <= 15)
 
+  // Adicionar itens a um pedido em aberto: dono ou quem criou a lista.
+  const podeAdicionar = cargo === 'dono' || ehCriador
+
   async function confirmarExcluir() {
     setExcluindo(true)
     try {
@@ -244,6 +247,15 @@ export function PedidoView({ pedido, cargo, userId }: Props) {
           </p>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
+          {podeAdicionar && (
+            <Link
+              href={`/pedidos/${pedido.id}/adicionar`}
+              className="flex items-center gap-1.5 text-xs font-medium text-green-600 hover:text-green-700 px-3 py-1.5 rounded-lg hover:bg-green-50 transition-colors"
+            >
+              <Plus size={14} />
+              Adicionar itens
+            </Link>
+          )}
           <Link
             href={`/pedidos/${pedido.id}/imprimir`}
             className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
@@ -445,6 +457,11 @@ export function PedidoView({ pedido, cargo, userId }: Props) {
                               podeGerenciar={podeGerenciar}
                               onAtualizar={(status) => onAtualizarItem(item.id, status)}
                               nomeExibicao={temModelo ? nomeModeloExibicao(item) : nomeSemPrefixo(item, sub)}
+                              adicionadoEm={
+                                foiAdicionadoDepois(item.created_at, pedido.created_at)
+                                  ? item.created_at
+                                  : null
+                              }
                             />
                           </div>
                         )
@@ -574,12 +591,15 @@ function ItemRow({
   podeGerenciar,
   onAtualizar,
   nomeExibicao,
+  adicionadoEm,
 }: {
   item: PedidoItem
   podeGerenciar: boolean
   onAtualizar: (status: 'comprado' | 'nao_tem') => void
   /** Nome a exibir; se omitido, usa o nome_snapshot completo. */
   nomeExibicao?: string
+  /** Data (ISO) em que o item foi adicionado depois; null se veio no lote original. */
+  adicionadoEm?: string | null
 }) {
   const isComprado = item.status === 'comprado'
   const isNaoTem = item.status === 'nao_tem'
@@ -627,6 +647,12 @@ function ItemRow({
         >
           {nomeExibicao ?? item.nome_snapshot}
         </p>
+        {adicionadoEm && (
+          <span className="inline-flex items-center gap-1 mt-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">
+            <Plus size={9} />
+            Adicionado {formatDate(adicionadoEm, 'dd/MM')}
+          </span>
+        )}
         {item.observacao && (
           <p className="text-xs text-gray-400 mt-0.5">{item.observacao}</p>
         )}

@@ -2,9 +2,9 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { formatDateTime } from '@/lib/utils'
+import { formatDateTime, formatDate, foiAdicionadoDepois } from '@/lib/utils'
 import { CATEGORIA_LABEL } from '@/lib/constants'
-import { Package, Smartphone, Printer, Check, X } from 'lucide-react'
+import { Package, Smartphone, Printer, Check, X, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ReutilizarPedidoButton } from '@/components/historico/ReutilizarPedidoButton'
 import { LogoUnidade } from '@/components/shared/LogoUnidade'
@@ -40,7 +40,7 @@ export default async function HistoricoDetalhe({ params }: { params: { id: strin
   const itens = pedido.itens as {
     id: string; status: string; categoria: string; nome_snapshot: string
     foto_url_snapshot: string | null; observacao: string | null
-    subgrupo_snapshot?: string | null
+    subgrupo_snapshot?: string | null; created_at: string
     acessorio_id?: string | null; sugestao_id?: string | null; subcapa_id?: string | null
     modelo_id?: string | null; tipo_peli_maq_id?: string | null
     tipo_peli_trad_id?: string | null; material_id?: string | null
@@ -123,6 +123,12 @@ export default async function HistoricoDetalhe({ params }: { params: { id: strin
                       <p className={cn('text-sm text-gray-900', item.status !== 'comprado' && 'line-through text-gray-400')}>
                         {item.nome_snapshot}
                       </p>
+                      {foiAdicionadoDepois(item.created_at, pedido.created_at) && (
+                        <span className="inline-flex items-center gap-1 mt-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">
+                          <Plus size={9} />
+                          Adicionado {formatDate(item.created_at, 'dd/MM')}
+                        </span>
+                      )}
                       {item.observacao && (
                         <p className="text-xs text-gray-400">{item.observacao}</p>
                       )}

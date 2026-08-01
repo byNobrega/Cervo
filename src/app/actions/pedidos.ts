@@ -83,6 +83,81 @@ export async function criarPedido(
   return pedido.id
 }
 
+// Adiciona itens a um pedido JÁ EXISTENTE que ainda esteja EM ABERTO (aguardando
+// o gerente comprar). Depois de comprado (status 'concluida'), o pedido vira
+// imutável e vai para o histórico — por isso aqui recusamos pedidos concluídos.
+// Permissão: dono (admin) ou quem criou a lista.
+export async function adicionarItensAoPedido(
+  pedidoId: string,
+  userId: string,
+  itens: ItemSelecionado[]
+): Promise<{ ok: boolean; mensagem?: string }> {
+  if (itens.length === 0) return { ok: false, mensagem: 'Nenhum item para adicionar.' }
+
+  const supabase = await createClient()
+  const admin = await createAdminClient()
+
+  const [{ data: pedido }, { data: perfil }] = await Promise.all([
+    supabase.from('pedidos').select('criado_por, status').eq('id', pedidoId).single(),
+    supabase.from('profiles').select('cargo, nome').eq('id', userId).single(),
+  ])
+
+  if (!pedido) return { ok: false, mensagem: 'Pedido não encontrado.' }
+
+  // Só pedidos em aberto (ainda não comprados) podem receber itens.
+  if (pedido.status !== 'aberta') {
+    return { ok: false, mensagem: 'Este pedido já foi comprado e não pode mais ser alterado.' }
+  }
+
+  // Permissão: dono ou quem criou a lista.
+  const ehDono = perfil?.cargo === 'dono'
+  const ehCriador = pedido.criado_por === userId
+  if (!ehDono && !ehCriador) {
+    return { ok: false, mensagem: 'Apenas o dono ou quem criou a lista pode adicionar itens.' }
+  }
+
+  // Insere via admin (já validamos a permissão). O created_at atual de cada item
+  // é o que marca "Adicionado em DD/MM" na tela do pedido e no histórico.
+  const inserts = itens.map((item) => ({
+    pedido_id: pedidoId,
+    categoria: item.categoria,
+    acessorio_id: item.acessorioId ?? null,
+    sugestao_id: item.sugestaoId ?? null,
+    subcapa_id: item.subcapaId ?? null,
+    modelo_id: item.modeloId ?? null,
+    tipo_peli_maq_id: item.tipoPeliMaqId ?? null,
+    tipo_peli_trad_id: item.tipoPeliTradId ?? null,
+    material_id: item.materialId ?? null,
+    nome_snapshot: item.nome,
+    foto_url_snapshot: item.fotoUrl,
+    subgrupo_snapshot: item.subgrupo ?? null,
+    observacao: item.observacao || null,
+    status: 'pendente' as const,
+  }))
+
+  const { error } = await admin.from('pedido_itens').insert(inserts)
+  if (error) return { ok: false, mensagem: 'Falha ao adicionar os itens. Tente novamente.' }
+
+  // Avisa gerentes/dono (quem vai comprar) que itens novos entraram no pedido.
+  try {
+    const quem = perfil?.nome ?? 'Alguém'
+    const resumoCat = resumoCategorias(itens.map((i) => i.categoria))
+    const destinatarios = (await buscarIdsPorCargo(admin, ['gerente', 'dono'])).filter(
+      (id) => id !== userId
+    )
+    await notificar(admin, destinatarios, 'pedido_criado', 'Itens adicionados', {
+      mensagem: `${quem} adicionou ${itens.length} item(ns) a um pedido em aberto.\nNovos: ${resumoCat}.`,
+      link: `/pedidos/${pedidoId}`,
+    })
+  } catch (e) {
+    console.error('[adicionarItensAoPedido] falha ao notificar:', e)
+  }
+
+  revalidatePath(`/pedidos/${pedidoId}`)
+  revalidatePath('/pedidos')
+  return { ok: true, mensagem: `${itens.length} item(ns) adicionado(s) ao pedido.` }
+}
+
 export async function atualizarStatusItem(
   itemId: string,
   status: 'comprado' | 'nao_tem' | 'pendente'

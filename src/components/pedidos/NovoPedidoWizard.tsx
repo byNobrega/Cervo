@@ -1,13 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { usePedidoStore } from '@/store/pedidoStore'
 import { AbaAcessorios } from './AbaAcessorios'
 import { AbaCapas } from './AbaCapas'
 import { AbaPeliculas } from './AbaPeliculas'
 import { AbaMaterial } from './AbaMaterial'
-import { criarPedido } from '@/app/actions/pedidos'
+import { criarPedido, adicionarItensAoPedido } from '@/app/actions/pedidos'
 import { celebrar } from '@/lib/efeitos'
 import { Loader2, ShoppingCart, Plus, ChevronLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -29,15 +29,28 @@ interface Props {
   peliculasTradicionais: TipoPeliculaTradicional[]
   materiais: MaterialLoja[]
   userId: string
+  // Quando presente, o wizard opera em modo "adicionar itens a um pedido
+  // existente" (em vez de criar um novo pedido).
+  pedidoExistenteId?: string
 }
 
 export function NovoPedidoWizard(props: Props) {
+  const modoAdicionar = Boolean(props.pedidoExistenteId)
+  const rotuloAcao = modoAdicionar ? 'Adicionar ao pedido' : 'Finalizar pedido'
+
   // null = mostrando a seleção de categorias; senão, dentro de uma categoria
   const [categoria, setCategoria] = useState<CategoriaPedido | null>(null)
   const [salvando, setSalvando] = useState(false)
   const [modalFinalizar, setModalFinalizar] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
   const { itens, limpar } = usePedidoStore()
   const router = useRouter()
+
+  // No modo "adicionar", começa com a seleção vazia (só os itens novos).
+  useEffect(() => {
+    if (modoAdicionar) limpar()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Conta itens por categoria (mapeando as categorias internas dos itens)
   function qtdNaCategoria(cat: CategoriaPedido): number {
@@ -57,12 +70,24 @@ export function NovoPedidoWizard(props: Props) {
 
   async function salvarPedido() {
     if (itens.length === 0) return
+    setErro(null)
     setSalvando(true)
     try {
-      const pedidoId = await criarPedido(props.userId, itens)
-      celebrar() // confete + trompete ao criar a lista
-      limpar()
-      router.push(`/pedidos/${pedidoId}`)
+      if (props.pedidoExistenteId) {
+        const r = await adicionarItensAoPedido(props.pedidoExistenteId, props.userId, itens)
+        if (!r.ok) {
+          setErro(r.mensagem ?? 'Não foi possível adicionar os itens.')
+          setModalFinalizar(false)
+          return
+        }
+        limpar()
+        router.push(`/pedidos/${props.pedidoExistenteId}`)
+      } else {
+        const pedidoId = await criarPedido(props.userId, itens)
+        celebrar() // confete + trompete ao criar a lista
+        limpar()
+        router.push(`/pedidos/${pedidoId}`)
+      }
     } finally {
       setSalvando(false)
     }
@@ -73,7 +98,9 @@ export function NovoPedidoWizard(props: Props) {
     return (
       <div className="space-y-4">
         <p className="text-sm text-gray-500">
-          Escolha uma categoria para começar. Você poderá adicionar outras depois.
+          {modoAdicionar
+            ? 'Escolha os itens que faltam para adicionar a este pedido.'
+            : 'Escolha uma categoria para começar. Você poderá adicionar outras depois.'}
         </p>
 
         <div className="grid grid-cols-2 gap-3">
@@ -101,11 +128,14 @@ export function NovoPedidoWizard(props: Props) {
           })}
         </div>
 
+        {erro && <p className="text-sm text-red-500">{erro}</p>}
+
         {/* Resumo / salvar */}
         {itens.length > 0 && (
           <BarraResumo
             itens={itens}
             salvando={salvando}
+            rotuloAcao={rotuloAcao}
             onSalvar={pedirFinalizacao}
           />
         )}
@@ -113,6 +143,7 @@ export function NovoPedidoWizard(props: Props) {
         <ModalFinalizar
           aberto={modalFinalizar}
           salvando={salvando}
+          modoAdicionar={modoAdicionar}
           onCancelar={() => setModalFinalizar(false)}
           onConfirmar={salvarPedido}
         />
@@ -201,13 +232,16 @@ export function NovoPedidoWizard(props: Props) {
           )}
         >
           {salvando ? <Loader2 size={16} className="animate-spin" /> : <ShoppingCart size={16} />}
-          Finalizar pedido
+          {rotuloAcao}
         </button>
       </div>
+
+      {erro && <p className="text-sm text-red-500">{erro}</p>}
 
       <ModalFinalizar
         aberto={modalFinalizar}
         salvando={salvando}
+        modoAdicionar={modoAdicionar}
         onCancelar={() => setModalFinalizar(false)}
         onConfirmar={salvarPedido}
       />
@@ -218,11 +252,13 @@ export function NovoPedidoWizard(props: Props) {
 function ModalFinalizar({
   aberto,
   salvando,
+  modoAdicionar,
   onCancelar,
   onConfirmar,
 }: {
   aberto: boolean
   salvando: boolean
+  modoAdicionar: boolean
   onCancelar: () => void
   onConfirmar: () => void
 }) {
@@ -231,10 +267,13 @@ function ModalFinalizar({
     <div className="fixed inset-0 bg-black/30 z-50 flex items-end sm:items-center justify-center p-4">
       <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-xl">
         <div className="p-5">
-          <h3 className="font-semibold text-gray-900 text-sm">Finalizar pedido?</h3>
+          <h3 className="font-semibold text-gray-900 text-sm">
+            {modoAdicionar ? 'Adicionar estes itens?' : 'Finalizar pedido?'}
+          </h3>
           <p className="text-xs text-gray-500 mt-1">
-            Tem certeza que não quer adicionar mais itens? O pedido será enviado para
-            o gerente comprar.
+            {modoAdicionar
+              ? 'Os itens entram no pedido em aberto, marcados com a data de hoje.'
+              : 'Tem certeza que não quer adicionar mais itens? O pedido será enviado para o gerente comprar.'}
           </p>
         </div>
         <div className="grid grid-cols-2 gap-0 border-t border-gray-100">
@@ -253,7 +292,7 @@ function ModalFinalizar({
             className="flex items-center justify-center gap-2 py-3 text-sm font-medium text-green-600 hover:bg-green-50 transition-colors disabled:opacity-50"
           >
             {salvando && <Loader2 size={14} className="animate-spin" />}
-            Sim, finalizar
+            {modoAdicionar ? 'Sim, adicionar' : 'Sim, finalizar'}
           </button>
         </div>
       </div>
@@ -264,10 +303,12 @@ function ModalFinalizar({
 function BarraResumo({
   itens,
   salvando,
+  rotuloAcao,
   onSalvar,
 }: {
   itens: ReturnType<typeof usePedidoStore.getState>['itens']
   salvando: boolean
+  rotuloAcao: string
   onSalvar: () => void
 }) {
   const pendentes = itens.filter((i) => i.isPendenteSugestao).length
@@ -291,7 +332,7 @@ function BarraResumo({
           className="flex items-center gap-2 px-5 py-2.5 bg-gray-900 text-white rounded-lg text-sm font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors"
         >
           {salvando ? <Loader2 size={16} className="animate-spin" /> : <ShoppingCart size={16} />}
-          Finalizar pedido
+          {rotuloAcao}
         </button>
       </div>
     </div>

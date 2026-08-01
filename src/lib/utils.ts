@@ -28,3 +28,11 @@ export function dataCurtaBR(dateStr: string) {
 export function gerarTempId() {
   return `temp_${Math.random().toString(36).slice(2)}_${Date.now()}`
 }
+
+// Um item é "adicionado depois" quando entrou no pedido bem após a criação: o
+// lote original é inserido em segundos, enquanto adições posteriores vêm minutos
+// ou dias depois. Usado para marcar "Adicionado em DD/MM" na lista e no histórico.
+const MARGEM_ADICIONADO_MS = 5 * 60 * 1000 // 5 minutos
+export function foiAdicionadoDepois(itemISO: string, pedidoISO: string): boolean {
+  return new Date(itemISO).getTime() - new Date(pedidoISO).getTime() > MARGEM_ADICIONADO_MS
+}
