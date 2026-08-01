@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import { NovoPedidoWizard } from '@/components/pedidos/NovoPedidoWizard'
+import { chaveItemPedido } from '@/lib/itemKey'
 export const dynamic = 'force-dynamic'
 
 export default async function AdicionarItensPage({ params }: { params: { id: string } }) {
@@ -14,7 +15,11 @@ export default async function AdicionarItensPage({ params }: { params: { id: str
   const [{ data: pedido }, { data: perfil }] = await Promise.all([
     supabase
       .from('pedidos')
-      .select('id, criado_por, status, unidade:unidades(nome)')
+      .select(`
+        id, criado_por, status,
+        unidade:unidades(nome),
+        itens:pedido_itens(categoria, acessorio_id, subcapa_id, modelo_id, tipo_peli_maq_id, tipo_peli_trad_id, material_id, nome_snapshot)
+      `)
       .eq('id', params.id)
       .single(),
     supabase.from('profiles').select('cargo').eq('id', user.id).single(),
@@ -49,6 +54,10 @@ export default async function AdicionarItensPage({ params }: { params: { id: str
 
   const unidadeNome = (pedido.unidade as unknown as { nome: string } | null)?.nome ?? null
 
+  // Chaves dos itens que já estão no pedido, para o wizard avisar sobre duplicatas.
+  const itensExistentes = (pedido.itens as unknown as Parameters<typeof chaveItemPedido>[0][]) ?? []
+  const chavesExistentes = itensExistentes.map(chaveItemPedido)
+
   return (
     <div className="max-w-3xl mx-auto">
       <Link
@@ -75,6 +84,7 @@ export default async function AdicionarItensPage({ params }: { params: { id: str
         materiais={materiais ?? []}
         userId={user.id}
         pedidoExistenteId={params.id}
+        chavesExistentes={chavesExistentes}
       />
     </div>
   )

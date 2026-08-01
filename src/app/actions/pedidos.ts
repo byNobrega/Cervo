@@ -7,6 +7,7 @@ import { notificar, buscarIdsPorCargo } from '@/lib/notificacoes'
 import { verificarConexaoWhatsApp, enviarImagemWhatsApp, enviarWhatsApp } from '@/lib/whatsapp'
 import { gerarImagemLista, type GrupoImagem } from '@/lib/listaImagem'
 import { rotuloCategoria, type ItemLista } from '@/lib/listaWhatsApp'
+import { chaveItemSelecionado, chaveItemPedido } from '@/lib/itemKey'
 import { resumoCategorias } from '@/lib/constants'
 import { ordenarModeloNatural } from '@/lib/ordenarModelos'
 import { dataCurtaBR } from '@/lib/utils'
@@ -116,9 +117,25 @@ export async function adicionarItensAoPedido(
     return { ok: false, mensagem: 'Apenas o dono ou quem criou a lista pode adicionar itens.' }
   }
 
+  // Ignora itens que JÁ estão no pedido (evita duplicata). A tela também avisa
+  // antes, mas aqui é a trava definitiva.
+  const { data: existentes } = await supabase
+    .from('pedido_itens')
+    .select(
+      'categoria, acessorio_id, subcapa_id, modelo_id, tipo_peli_maq_id, tipo_peli_trad_id, material_id, nome_snapshot'
+    )
+    .eq('pedido_id', pedidoId)
+  const chavesExistentes = new Set((existentes ?? []).map(chaveItemPedido))
+  const novos = itens.filter((i) => !chavesExistentes.has(chaveItemSelecionado(i)))
+  const pulados = itens.length - novos.length
+
+  if (novos.length === 0) {
+    return { ok: false, mensagem: 'Todos os itens selecionados já estavam no pedido.' }
+  }
+
   // Insere via admin (já validamos a permissão). O created_at atual de cada item
   // é o que marca "Adicionado em DD/MM" na tela do pedido e no histórico.
-  const inserts = itens.map((item) => ({
+  const inserts = novos.map((item) => ({
     pedido_id: pedidoId,
     categoria: item.categoria,
     acessorio_id: item.acessorioId ?? null,
@@ -141,12 +158,12 @@ export async function adicionarItensAoPedido(
   // Avisa gerentes/dono (quem vai comprar) que itens novos entraram no pedido.
   try {
     const quem = perfil?.nome ?? 'Alguém'
-    const resumoCat = resumoCategorias(itens.map((i) => i.categoria))
+    const resumoCat = resumoCategorias(novos.map((i) => i.categoria))
     const destinatarios = (await buscarIdsPorCargo(admin, ['gerente', 'dono'])).filter(
       (id) => id !== userId
     )
     await notificar(admin, destinatarios, 'pedido_criado', 'Itens adicionados', {
-      mensagem: `${quem} adicionou ${itens.length} item(ns) a um pedido em aberto.\nNovos: ${resumoCat}.`,
+      mensagem: `${quem} adicionou ${novos.length} item(ns) a um pedido em aberto.\nNovos: ${resumoCat}.`,
       link: `/pedidos/${pedidoId}`,
     })
   } catch (e) {
@@ -155,7 +172,77 @@ export async function adicionarItensAoPedido(
 
   revalidatePath(`/pedidos/${pedidoId}`)
   revalidatePath('/pedidos')
-  return { ok: true, mensagem: `${itens.length} item(ns) adicionado(s) ao pedido.` }
+  const aviso = pulados > 0 ? ` (${pulados} já estava(m) no pedido)` : ''
+  return { ok: true, mensagem: `${novos.length} item(ns) adicionado(s) ao pedido${aviso}.` }
+}
+
+// Autoriza remover/editar UM item: o pedido precisa estar em aberto e quem pede
+// precisa ser dono ou o criador da lista. Não é um server action (não exportado).
+async function autorizarAlteracaoItem(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  itemId: string,
+  userId: string
+): Promise<{ ok: true; pedidoId: string } | { ok: false; mensagem: string }> {
+  const { data: item } = await supabase
+    .from('pedido_itens')
+    .select('pedido_id')
+    .eq('id', itemId)
+    .single()
+  if (!item) return { ok: false, mensagem: 'Item não encontrado.' }
+
+  const [{ data: pedido }, { data: perfil }] = await Promise.all([
+    supabase.from('pedidos').select('criado_por, status').eq('id', item.pedido_id).single(),
+    supabase.from('profiles').select('cargo').eq('id', userId).single(),
+  ])
+  if (!pedido) return { ok: false, mensagem: 'Pedido não encontrado.' }
+  if (pedido.status !== 'aberta') {
+    return { ok: false, mensagem: 'Este pedido já foi comprado e não pode mais ser alterado.' }
+  }
+  const autorizado = perfil?.cargo === 'dono' || pedido.criado_por === userId
+  if (!autorizado) {
+    return { ok: false, mensagem: 'Apenas o dono ou quem criou a lista pode alterar itens.' }
+  }
+  return { ok: true, pedidoId: item.pedido_id }
+}
+
+// Remove um item de um pedido em aberto (dono ou criador).
+export async function removerItemDoPedido(
+  itemId: string,
+  userId: string
+): Promise<{ ok: boolean; mensagem?: string }> {
+  const supabase = await createClient()
+  const auth = await autorizarAlteracaoItem(supabase, itemId, userId)
+  if (!auth.ok) return auth
+
+  const admin = await createAdminClient()
+  const { error } = await admin.from('pedido_itens').delete().eq('id', itemId)
+  if (error) return { ok: false, mensagem: 'Falha ao remover o item. Tente novamente.' }
+
+  revalidatePath(`/pedidos/${auth.pedidoId}`)
+  revalidatePath('/pedidos')
+  return { ok: true }
+}
+
+// Edita a observação (texto) de um item de um pedido em aberto (dono ou criador).
+export async function editarObservacaoItem(
+  itemId: string,
+  userId: string,
+  observacao: string
+): Promise<{ ok: boolean; mensagem?: string }> {
+  const supabase = await createClient()
+  const auth = await autorizarAlteracaoItem(supabase, itemId, userId)
+  if (!auth.ok) return auth
+
+  const admin = await createAdminClient()
+  const { error } = await admin
+    .from('pedido_itens')
+    .update({ observacao: observacao.trim() || null })
+    .eq('id', itemId)
+  if (error) return { ok: false, mensagem: 'Falha ao salvar a observação. Tente novamente.' }
+
+  revalidatePath(`/pedidos/${auth.pedidoId}`)
+  return { ok: true }
 }
 
 export async function atualizarStatusItem(

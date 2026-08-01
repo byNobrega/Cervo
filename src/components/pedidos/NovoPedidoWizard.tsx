@@ -1,15 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { usePedidoStore } from '@/store/pedidoStore'
+import { chaveItemSelecionado } from '@/lib/itemKey'
 import { AbaAcessorios } from './AbaAcessorios'
 import { AbaCapas } from './AbaCapas'
 import { AbaPeliculas } from './AbaPeliculas'
 import { AbaMaterial } from './AbaMaterial'
 import { criarPedido, adicionarItensAoPedido } from '@/app/actions/pedidos'
 import { celebrar } from '@/lib/efeitos'
-import { Loader2, ShoppingCart, Plus, ChevronLeft } from 'lucide-react'
+import { Loader2, ShoppingCart, Plus, ChevronLeft, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TEMA_CATEGORIA, type CategoriaPedido } from '@/lib/constants'
 import type {
@@ -32,6 +33,9 @@ interface Props {
   // Quando presente, o wizard opera em modo "adicionar itens a um pedido
   // existente" (em vez de criar um novo pedido).
   pedidoExistenteId?: string
+  // Chaves dos itens que já estão no pedido (modo adicionar), para avisar sobre
+  // duplicatas conforme o usuário seleciona.
+  chavesExistentes?: string[]
 }
 
 export function NovoPedidoWizard(props: Props) {
@@ -51,6 +55,13 @@ export function NovoPedidoWizard(props: Props) {
     if (modoAdicionar) limpar()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Itens que o usuário selecionou mas que JÁ estão no pedido (modo adicionar).
+  const setExistentes = useMemo(
+    () => new Set(props.chavesExistentes ?? []),
+    [props.chavesExistentes]
+  )
+  const duplicados = itens.filter((i) => setExistentes.has(chaveItemSelecionado(i)))
 
   // Conta itens por categoria (mapeando as categorias internas dos itens)
   function qtdNaCategoria(cat: CategoriaPedido): number {
@@ -93,6 +104,22 @@ export function NovoPedidoWizard(props: Props) {
     }
   }
 
+  const bannerDuplicados =
+    duplicados.length > 0 ? (
+      <div className="flex items-start gap-2 bg-amber-50 border border-amber-200 rounded-xl p-3 text-amber-700">
+        <AlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
+        <div className="text-xs">
+          <p className="font-semibold">
+            {duplicados.length === 1
+              ? 'Este item já está no pedido:'
+              : 'Estes itens já estão no pedido:'}
+          </p>
+          <p className="mt-0.5">{duplicados.map((d) => d.nome).join(', ')}</p>
+          <p className="mt-1 text-amber-600">Se adicionar, eles não serão duplicados.</p>
+        </div>
+      </div>
+    ) : null
+
   // ---------- TELA 1: seleção exclusiva de categoria ----------
   if (categoria === null) {
     return (
@@ -102,6 +129,8 @@ export function NovoPedidoWizard(props: Props) {
             ? 'Escolha os itens que faltam para adicionar a este pedido.'
             : 'Escolha uma categoria para começar. Você poderá adicionar outras depois.'}
         </p>
+
+        {bannerDuplicados}
 
         <div className="grid grid-cols-2 gap-3">
           {ORDEM_CATEGORIAS.map((cat) => {
@@ -181,6 +210,8 @@ export function NovoPedidoWizard(props: Props) {
           </span>
         )}
       </div>
+
+      {bannerDuplicados}
 
       {/* Conteúdo */}
       <div className="min-h-48">

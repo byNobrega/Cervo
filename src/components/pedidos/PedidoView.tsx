@@ -5,10 +5,10 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { type Pedido, type PedidoItem } from '@/types'
-import { atualizarStatusItem, finalizarPedido, excluirPedido, enviarListaWhatsApp } from '@/app/actions/pedidos'
+import { atualizarStatusItem, finalizarPedido, excluirPedido, enviarListaWhatsApp, removerItemDoPedido, editarObservacaoItem } from '@/app/actions/pedidos'
 import { CATEGORIA_LABEL, TEMA_CATEGORIA, type CategoriaPedido } from '@/lib/constants'
 import { formatDateTime, formatDate, foiAdicionadoDepois } from '@/lib/utils'
-import { Check, X, Printer, Loader2, Package, Smartphone, AlertCircle, ChevronRight, Trash2, Plus } from 'lucide-react'
+import { Check, X, Printer, Loader2, Package, Smartphone, AlertCircle, ChevronRight, Trash2, Plus, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SubcategoriaAccordion } from './SubcategoriaAccordion'
 import { LogoUnidade } from '@/components/shared/LogoUnidade'
@@ -136,8 +136,25 @@ export function PedidoView({ pedido, cargo, userId }: Props) {
   const minutosDesdeCriacao = (Date.now() - new Date(pedido.created_at).getTime()) / 60000
   const podeExcluir = podeGerenciar || (ehCriador && minutosDesdeCriacao <= 15)
 
-  // Adicionar itens a um pedido em aberto: dono ou quem criou a lista.
+  // Adicionar/remover/editar itens de um pedido em aberto: dono ou criador.
   const podeAdicionar = cargo === 'dono' || ehCriador
+
+  // Remove um item (otimista); em caso de falha, ressincroniza com o servidor.
+  function handleRemoverItem(id: string) {
+    setItens((lista) => lista.filter((i) => i.id !== id))
+    removerItemDoPedido(id, userId)
+      .then((r) => { if (!r.ok) router.refresh() })
+      .catch(() => router.refresh())
+  }
+
+  // Salva a observação (texto) de um item (otimista).
+  function handleSalvarObs(id: string, obs: string) {
+    const limpa = obs.trim()
+    setItens((lista) => lista.map((i) => (i.id === id ? { ...i, observacao: limpa || null } : i)))
+    editarObservacaoItem(id, userId, limpa)
+      .then((r) => { if (!r.ok) router.refresh() })
+      .catch(() => router.refresh())
+  }
 
   async function confirmarExcluir() {
     setExcluindo(true)
@@ -455,7 +472,10 @@ export function PedidoView({ pedido, cargo, userId }: Props) {
                             <ItemRow
                               item={item}
                               podeGerenciar={podeGerenciar}
+                              podeEditar={podeAdicionar}
                               onAtualizar={(status) => onAtualizarItem(item.id, status)}
+                              onRemover={() => handleRemoverItem(item.id)}
+                              onEditarObs={(obs) => handleSalvarObs(item.id, obs)}
                               nomeExibicao={temModelo ? nomeModeloExibicao(item) : nomeSemPrefixo(item, sub)}
                               adicionadoEm={
                                 foiAdicionadoDepois(item.created_at, pedido.created_at)
@@ -589,13 +609,20 @@ export function PedidoView({ pedido, cargo, userId }: Props) {
 function ItemRow({
   item,
   podeGerenciar,
+  podeEditar,
   onAtualizar,
+  onRemover,
+  onEditarObs,
   nomeExibicao,
   adicionadoEm,
 }: {
   item: PedidoItem
   podeGerenciar: boolean
+  /** Dono ou criador: pode editar a observação e remover o item (pedido em aberto). */
+  podeEditar?: boolean
   onAtualizar: (status: 'comprado' | 'nao_tem') => void
+  onRemover?: () => void
+  onEditarObs?: (obs: string) => void
   /** Nome a exibir; se omitido, usa o nome_snapshot completo. */
   nomeExibicao?: string
   /** Data (ISO) em que o item foi adicionado depois; null se veio no lote original. */
@@ -604,94 +631,179 @@ function ItemRow({
   const isComprado = item.status === 'comprado'
   const isNaoTem = item.status === 'nao_tem'
 
+  const [editandoObs, setEditandoObs] = useState(false)
+  const [obsInput, setObsInput] = useState(item.observacao ?? '')
+  const [confirmandoRemover, setConfirmandoRemover] = useState(false)
+
   // Ícone de fallback (quando o item não tem foto): películas mostram um ícone
   // de celular (a película vai na tela); as demais categorias seguem com a caixa.
   const isPelicula =
     item.categoria === 'pelicula_maquina' || item.categoria === 'pelicula_tradicional'
   const IconeFallback = isPelicula ? Smartphone : Package
 
+  function abrirEdicaoObs() {
+    setObsInput(item.observacao ?? '')
+    setConfirmandoRemover(false)
+    setEditandoObs(true)
+  }
+
   return (
-    <div className="flex items-center gap-3 p-3">
-      <div className="relative w-11 h-11 rounded-lg overflow-hidden bg-gray-50 flex-shrink-0">
-        {item.foto_url_snapshot ? (
-          <>
-            <Image
-              src={item.foto_url_snapshot}
-              alt={item.nome_snapshot}
-              fill
-              sizes="150px"
-              className="object-cover"
-            />
-            {isComprado && (
-              <div className="absolute inset-0 bg-green-500/40 flex items-center justify-center">
-                <Check size={14} className="text-white" />
-              </div>
-            )}
-            {isNaoTem && (
-              <div className="absolute inset-0 bg-red-500/40 flex items-center justify-center">
-                <X size={14} className="text-white" />
-              </div>
-            )}
-          </>
-        ) : (
-          <IconeFallback size={16} className="absolute inset-0 m-auto text-gray-200" />
-        )}
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <p
-          className={cn(
-            'text-sm text-gray-900',
-            (isComprado || isNaoTem) && 'line-through text-gray-400'
+    <div>
+      <div className="flex items-center gap-3 p-3">
+        <div className="relative w-11 h-11 rounded-lg overflow-hidden bg-gray-50 flex-shrink-0">
+          {item.foto_url_snapshot ? (
+            <>
+              <Image
+                src={item.foto_url_snapshot}
+                alt={item.nome_snapshot}
+                fill
+                sizes="150px"
+                className="object-cover"
+              />
+              {isComprado && (
+                <div className="absolute inset-0 bg-green-500/40 flex items-center justify-center">
+                  <Check size={14} className="text-white" />
+                </div>
+              )}
+              {isNaoTem && (
+                <div className="absolute inset-0 bg-red-500/40 flex items-center justify-center">
+                  <X size={14} className="text-white" />
+                </div>
+              )}
+            </>
+          ) : (
+            <IconeFallback size={16} className="absolute inset-0 m-auto text-gray-200" />
           )}
-        >
-          {nomeExibicao ?? item.nome_snapshot}
-        </p>
-        {adicionadoEm && (
-          <span className="inline-flex items-center gap-1 mt-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">
-            <Plus size={9} />
-            Adicionado {formatDate(adicionadoEm, 'dd/MM')}
-          </span>
-        )}
-        {item.observacao && (
-          <p className="text-xs text-gray-400 mt-0.5">{item.observacao}</p>
-        )}
-        {item.sugestao_id && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 font-medium">
-            PENDENTE APROVAÇÃO
-          </span>
-        )}
-      </div>
+        </div>
 
-      {podeGerenciar && (
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <button
-            type="button"
-            onClick={() => onAtualizar('comprado')}
-            aria-label="Marcar como comprado"
-            title="Comprado"
+        <div className="flex-1 min-w-0">
+          <p
             className={cn(
-              'w-8 h-8 rounded-lg flex items-center justify-center transition-colors',
-              isComprado
-                ? 'bg-green-500 text-white'
-                : 'bg-green-50 text-green-600 hover:bg-green-100'
+              'text-sm text-gray-900',
+              (isComprado || isNaoTem) && 'line-through text-gray-400'
             )}
           >
-            <Check size={15} />
+            {nomeExibicao ?? item.nome_snapshot}
+          </p>
+          {adicionadoEm && (
+            <span className="inline-flex items-center gap-1 mt-0.5 text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-50 text-blue-600">
+              <Plus size={9} />
+              Adicionado {formatDate(adicionadoEm, 'dd/MM')}
+            </span>
+          )}
+          {item.observacao && (
+            <p className="text-xs text-gray-400 mt-0.5">{item.observacao}</p>
+          )}
+          {item.sugestao_id && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 font-medium">
+              PENDENTE APROVAÇÃO
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {podeEditar && (
+            <>
+              <button
+                type="button"
+                onClick={abrirEdicaoObs}
+                aria-label="Editar observação"
+                title="Editar observação"
+                className="w-8 h-8 rounded-lg flex items-center justify-center bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+              >
+                <Pencil size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={() => { setConfirmandoRemover((v) => !v); setEditandoObs(false) }}
+                aria-label="Remover item"
+                title="Remover do pedido"
+                className="w-8 h-8 rounded-lg flex items-center justify-center bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors"
+              >
+                <Trash2 size={14} />
+              </button>
+            </>
+          )}
+          {podeGerenciar && (
+            <>
+              <button
+                type="button"
+                onClick={() => onAtualizar('comprado')}
+                aria-label="Marcar como comprado"
+                title="Comprado"
+                className={cn(
+                  'w-8 h-8 rounded-lg flex items-center justify-center transition-colors',
+                  isComprado
+                    ? 'bg-green-500 text-white'
+                    : 'bg-green-50 text-green-600 hover:bg-green-100'
+                )}
+              >
+                <Check size={15} />
+              </button>
+              <button
+                type="button"
+                onClick={() => onAtualizar('nao_tem')}
+                aria-label="Marcar como não tem"
+                title="Não tem"
+                className={cn(
+                  'w-8 h-8 rounded-lg flex items-center justify-center transition-colors',
+                  isNaoTem
+                    ? 'bg-red-500 text-white'
+                    : 'bg-red-50 text-red-500 hover:bg-red-100'
+                )}
+              >
+                <X size={15} />
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Editar observação (texto) do item */}
+      {editandoObs && (
+        <div className="px-3 pb-3 flex items-center gap-2">
+          <input
+            value={obsInput}
+            onChange={(e) => setObsInput(e.target.value)}
+            placeholder="Observação (ex: cores masculinas...)"
+            aria-label="Observação do item"
+            autoFocus
+            className="flex-1 min-w-0 px-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            type="button"
+            onClick={() => { onEditarObs?.(obsInput); setEditandoObs(false) }}
+            className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700"
+          >
+            Salvar
           </button>
           <button
             type="button"
-            onClick={() => onAtualizar('nao_tem')}
-            aria-label="Marcar como não tem"
-            title="Não tem"
-            className={cn(
-              'w-8 h-8 rounded-lg flex items-center justify-center transition-colors',
-              isNaoTem
-                ? 'bg-red-500 text-white'
-                : 'bg-red-50 text-red-500 hover:bg-red-100'
-            )}
+            onClick={() => setEditandoObs(false)}
+            className="px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 text-xs hover:bg-gray-200"
           >
-            <X size={15} />
+            Cancelar
+          </button>
+        </div>
+      )}
+
+      {/* Confirmar remoção do item */}
+      {confirmandoRemover && (
+        <div className="px-3 pb-3 flex items-center gap-2">
+          <span className="text-xs text-gray-500 mr-auto">Remover este item do pedido?</span>
+          <button
+            type="button"
+            onClick={() => { onRemover?.(); setConfirmandoRemover(false) }}
+            className="px-3 py-1.5 rounded-lg bg-red-500 text-white text-xs font-medium hover:bg-red-600"
+          >
+            Remover
+          </button>
+          <button
+            type="button"
+            onClick={() => setConfirmandoRemover(false)}
+            className="px-3 py-1.5 rounded-lg bg-gray-100 text-gray-600 text-xs hover:bg-gray-200"
+          >
+            Cancelar
           </button>
         </div>
       )}
