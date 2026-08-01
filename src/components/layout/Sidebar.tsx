@@ -126,14 +126,22 @@ export function Sidebar({ aberta, onFechar }: SidebarProps) {
       >
         {/* Header da sidebar */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <Image
-            src="/logo-cervo.png"
-            alt="CÊRVO"
-            width={96}
-            height={64}
-            priority
-            className="object-contain"
-          />
+          <Link
+            href="/painel"
+            onClick={onFechar}
+            aria-label="Ir para o Painel"
+            title="Página inicial"
+            className="transition-opacity hover:opacity-80"
+          >
+            <Image
+              src="/logo-cervo.png"
+              alt="CÊRVO"
+              width={96}
+              height={64}
+              priority
+              className="object-contain"
+            />
+          </Link>
           <button
             type="button"
             onClick={onFechar}
