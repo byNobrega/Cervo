@@ -34,8 +34,11 @@ export interface GrupoImagem {
   marcas: { marca: string; modelos: string[]; fotoUrl?: string | null }[]
 }
 
-const LARGURA = 900
-const FOTO = 360 // lado da foto de referência (px)
+const LARGURA = 1000
+const FOTO = 460 // lado da foto de referência (px)
+const TITULO_FONTE = 44 // tamanho do título
+const TITULO_LINHA = 58 // altura de uma linha do título em px (p/ o cálculo de altura)
+const TITULO_GAP = 60 // respiro entre o título e a lista
 
 // Baixa a foto do produto e converte para JPEG (data URI). O @vercel/og não
 // renderiza WebP; convertendo garantimos que a foto apareça na imagem.
@@ -45,7 +48,9 @@ async function fotoParaDataUri(url: string): Promise<string | null> {
     if (!resp.ok) return null
     const buf = Buffer.from(await resp.arrayBuffer())
     const { default: sharp } = await import('sharp')
-    const jpeg = await sharp(buf).resize(680, 680, { fit: 'cover' }).jpeg({ quality: 82 }).toBuffer()
+    // .rotate() sem argumento auto-orienta pela EXIF (senão fotos de celular
+    // saem "deitadas") e remove a tag de orientação antes do resize.
+    const jpeg = await sharp(buf).rotate().resize(680, 680, { fit: 'cover' }).jpeg({ quality: 82 }).toBuffer()
     return `data:image/jpeg;base64,${jpeg.toString('base64')}`
   } catch (e) {
     console.error('[listaImagem] falha ao converter foto:', e)
@@ -90,7 +95,12 @@ export async function gerarImagemLista(grupo: GrupoImagem): Promise<ArrayBuffer>
     const alturaFoto = b.foto ? FOTO + 24 : 0
     return acc + Math.max(alturaModelos, alturaFoto)
   }, 0)
-  const altura = Math.max(600, 190 + alturaConteudo)
+  // O título pode quebrar em várias linhas (ex: "Capa Transparente MagSafe c/
+  // Película na Câmera"). Estima as linhas para reservar altura suficiente e não
+  // sobrepor os modelos nem cortar o rodapé.
+  const linhasTitulo = Math.max(1, Math.ceil(grupo.titulo.length / 20))
+  const alturaTopo = 40 + linhasTitulo * TITULO_LINHA + TITULO_GAP
+  const altura = Math.max(600, alturaTopo + alturaConteudo + 40)
 
   const img = new ImageResponse(
     (
@@ -109,10 +119,10 @@ export async function gerarImagemLista(grupo: GrupoImagem): Promise<ArrayBuffer>
           style={{
             display: 'flex',
             color: '#fff',
-            fontSize: 48,
+            fontSize: TITULO_FONTE,
             fontWeight: 700,
-            lineHeight: 1.1,
-            paddingBottom: 48,
+            lineHeight: 1.2,
+            paddingBottom: TITULO_GAP,
           }}
         >
           {grupo.titulo}
