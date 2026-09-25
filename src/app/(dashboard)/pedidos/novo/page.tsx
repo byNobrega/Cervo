@@ -1,12 +1,34 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { NovoPedidoWizard } from '@/components/pedidos/NovoPedidoWizard'
+import { unidadesDisponiveis } from '@/lib/unidades'
+import { type Cargo } from '@/types'
 export const dynamic = 'force-dynamic'
 
 export default async function NovoPedidoPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
+
+  // Para qual loja vai a lista: o dono não tem unidade base (as listas dele
+  // saíam sem unidade, aparecendo como "Loja Alce"), então ele escolhe na tela.
+  const { data: perfil } = await supabase
+    .from('profiles')
+    .select('cargo, unidade_id')
+    .eq('id', user.id)
+    .single()
+
+  const opcoesUnidade = await unidadesDisponiveis(
+    supabase,
+    user.id,
+    (perfil?.cargo as Cargo) ?? null,
+    perfil?.unidade_id ?? null
+  )
+
+  // Já vem marcada a loja do próprio usuário, quando ele tem uma.
+  const unidadePadraoId =
+    opcoesUnidade.find((u) => u.id === perfil?.unidade_id)?.id ??
+    (opcoesUnidade.length === 1 ? opcoesUnidade[0].id : null)
 
   const [
     { data: subcatsAcessorio },
@@ -46,6 +68,8 @@ export default async function NovoPedidoPage() {
         peliculasTradicionais={peliculasTradicionais ?? []}
         materiais={materiais ?? []}
         userId={user.id}
+        opcoesUnidade={opcoesUnidade}
+        unidadePadraoId={unidadePadraoId}
       />
     </div>
   )

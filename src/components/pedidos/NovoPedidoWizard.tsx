@@ -10,9 +10,10 @@ import { AbaPeliculas } from './AbaPeliculas'
 import { AbaMaterial } from './AbaMaterial'
 import { criarPedido, adicionarItensAoPedido } from '@/app/actions/pedidos'
 import { celebrar } from '@/lib/efeitos'
-import { Loader2, ShoppingCart, Plus, ChevronLeft, AlertTriangle } from 'lucide-react'
+import { Loader2, ShoppingCart, Plus, ChevronLeft, AlertTriangle, Store } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TEMA_CATEGORIA, type CategoriaPedido } from '@/lib/constants'
+import { type OpcaoUnidade } from '@/lib/unidades'
 import type {
   SubcategoriaAcessorio, Acessorio, SubcategoriaCapa, MarcaCelular,
   ModeloCelular, TipoPeliculaMaquina, TipoPeliculaTradicional, MaterialLoja
@@ -30,6 +31,11 @@ interface Props {
   peliculasTradicionais: TipoPeliculaTradicional[]
   materiais: MaterialLoja[]
   userId: string
+  // Lojas em que o usuário pode abrir a lista. Com mais de uma o wizard pede
+  // que ele escolha antes de finalizar — o dono vê todas e não tem loja base,
+  // então sem escolher a lista sairia sem unidade.
+  opcoesUnidade?: OpcaoUnidade[]
+  unidadePadraoId?: string | null
   // Quando presente, o wizard opera em modo "adicionar itens a um pedido
   // existente" (em vez de criar um novo pedido).
   pedidoExistenteId?: string
@@ -47,8 +53,16 @@ export function NovoPedidoWizard(props: Props) {
   const [salvando, setSalvando] = useState(false)
   const [modalFinalizar, setModalFinalizar] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
+  const [unidadeId, setUnidadeId] = useState<string | null>(props.unidadePadraoId ?? null)
   const { itens, limpar } = usePedidoStore()
   const router = useRouter()
+
+  // Seletor de loja: só ao criar uma lista nova (ao adicionar itens, a lista já
+  // tem a sua loja) e só quando há mais de uma opção para o usuário.
+  const opcoesUnidade = props.opcoesUnidade ?? []
+  const mostraSeletorLoja = !modoAdicionar && opcoesUnidade.length > 1
+  const faltaEscolherLoja = mostraSeletorLoja && !unidadeId
+  const nomeUnidadeEscolhida = opcoesUnidade.find((u) => u.id === unidadeId)?.nome ?? null
 
   // No modo "adicionar", começa com a seleção vazia (só os itens novos).
   useEffect(() => {
@@ -76,6 +90,14 @@ export function NovoPedidoWizard(props: Props) {
 
   function pedirFinalizacao() {
     if (itens.length === 0) return
+    // Sem loja a lista sai sem unidade e aparece com o rótulo genérico: volta
+    // para a tela de categorias, que é onde fica o seletor.
+    if (faltaEscolherLoja) {
+      setCategoria(null)
+      setErro('Escolha para qual loja é esta lista.')
+      return
+    }
+    setErro(null)
     setModalFinalizar(true)
   }
 
@@ -94,7 +116,7 @@ export function NovoPedidoWizard(props: Props) {
         limpar()
         router.push(`/pedidos/${props.pedidoExistenteId}`)
       } else {
-        const pedidoId = await criarPedido(props.userId, itens)
+        const pedidoId = await criarPedido(props.userId, itens, unidadeId)
         celebrar() // confete + trompete ao criar a lista
         limpar()
         router.push(`/pedidos/${pedidoId}`)
@@ -129,6 +151,38 @@ export function NovoPedidoWizard(props: Props) {
             ? 'Escolha os itens que faltam para adicionar a este pedido.'
             : 'Escolha uma categoria para começar. Você poderá adicionar outras depois.'}
         </p>
+
+        {mostraSeletorLoja && (
+          <div className="bg-white border border-gray-100 rounded-xl p-4">
+            <label
+              htmlFor="unidade-lista"
+              className="flex items-center gap-2 text-sm font-medium text-gray-900"
+            >
+              <Store size={16} className="text-gray-400" />
+              Loja desta lista
+            </label>
+            <select
+              id="unidade-lista"
+              value={unidadeId ?? ''}
+              onChange={(e) => {
+                setUnidadeId(e.target.value || null)
+                setErro(null)
+              }}
+              className={cn(
+                'mt-2 w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white',
+                erro && faltaEscolherLoja ? 'border-red-300' : 'border-gray-200'
+              )}
+            >
+              <option value="">Selecione a loja...</option>
+              {opcoesUnidade.map((u) => (
+                <option key={u.id} value={u.id}>{u.nome}</option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1.5">
+              A lista vai para o gerente desta loja comprar.
+            </p>
+          </div>
+        )}
 
         {bannerDuplicados}
 
@@ -173,6 +227,7 @@ export function NovoPedidoWizard(props: Props) {
           aberto={modalFinalizar}
           salvando={salvando}
           modoAdicionar={modoAdicionar}
+          unidadeNome={nomeUnidadeEscolhida}
           onCancelar={() => setModalFinalizar(false)}
           onConfirmar={salvarPedido}
         />
@@ -273,6 +328,7 @@ export function NovoPedidoWizard(props: Props) {
         aberto={modalFinalizar}
         salvando={salvando}
         modoAdicionar={modoAdicionar}
+        unidadeNome={nomeUnidadeEscolhida}
         onCancelar={() => setModalFinalizar(false)}
         onConfirmar={salvarPedido}
       />
@@ -284,12 +340,14 @@ function ModalFinalizar({
   aberto,
   salvando,
   modoAdicionar,
+  unidadeNome,
   onCancelar,
   onConfirmar,
 }: {
   aberto: boolean
   salvando: boolean
   modoAdicionar: boolean
+  unidadeNome: string | null
   onCancelar: () => void
   onConfirmar: () => void
 }) {
@@ -306,6 +364,12 @@ function ModalFinalizar({
               ? 'Os itens entram no pedido em aberto, marcados com a data de hoje.'
               : 'Tem certeza que não quer adicionar mais itens? O pedido será enviado para o gerente comprar.'}
           </p>
+          {!modoAdicionar && unidadeNome && (
+            <p className="flex items-center gap-1.5 text-xs font-medium text-gray-900 mt-2">
+              <Store size={13} className="text-gray-400" />
+              {unidadeNome}
+            </p>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-0 border-t border-gray-100">
           <button

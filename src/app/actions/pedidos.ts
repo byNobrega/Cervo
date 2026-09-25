@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { type ItemSelecionado } from '@/types'
+import { type ItemSelecionado, type Cargo } from '@/types'
 import { notificar, buscarIdsPorCargo } from '@/lib/notificacoes'
 import { verificarConexaoWhatsApp, enviarImagemWhatsApp, enviarWhatsApp } from '@/lib/whatsapp'
 import { gerarImagemLista, type GrupoImagem } from '@/lib/listaImagem'
@@ -11,25 +11,55 @@ import { chaveItemSelecionado, chaveItemPedido } from '@/lib/itemKey'
 import { resumoCategorias } from '@/lib/constants'
 import { ordenarModeloNatural } from '@/lib/ordenarModelos'
 import { dataCurtaBR } from '@/lib/utils'
+import { unidadesDisponiveis } from '@/lib/unidades'
 
 export async function criarPedido(
   userId: string,
-  itens: ItemSelecionado[]
+  itens: ItemSelecionado[],
+  // Loja escolhida na tela. Quando ausente, a lista sai na unidade base do
+  // criador — o dono não tem unidade base, então para ele a tela sempre pede.
+  unidadeId?: string | null
 ): Promise<string> {
   const supabase = await createClient()
   const admin = await createAdminClient()
 
-  // Descobre a unidade do criador para vincular o pedido (e para a notificação)
+  // Perfil do criador: unidade base (padrão da lista), cargo (define quais
+  // lojas ele pode escolher) e nome (para a notificação).
   const { data: perfil } = await supabase
     .from('profiles')
-    .select('unidade_id, nome, unidade:unidades!profiles_unidade_id_fkey(nome)')
+    .select('cargo, unidade_id, nome, unidade:unidades!profiles_unidade_id_fkey(nome)')
     .eq('id', userId)
     .single()
 
-  // Cria o pedido
+  let unidadeFinalId = perfil?.unidade_id ?? null
+  let unidadeFinalNome =
+    (perfil?.unidade as unknown as { nome: string } | null)?.nome ?? null
+
+  // Revalida a escolha no servidor: só vale uma loja a que o usuário tem
+  // acesso de verdade (as mesmas que minhas_unidades() devolve no RLS).
+  if (unidadeId) {
+    const permitidas = await unidadesDisponiveis(
+      supabase,
+      userId,
+      (perfil?.cargo as Cargo) ?? null,
+      perfil?.unidade_id ?? null
+    )
+    const escolhida = permitidas.find((u) => u.id === unidadeId)
+    if (!escolhida) throw new Error('Você não tem acesso a esta loja.')
+    unidadeFinalId = escolhida.id
+    unidadeFinalNome = escolhida.nome
+  }
+
+  // Cria o pedido. nome_loja é só o rótulo de reserva (usado quando a unidade
+  // some), por isso só sobrescreve o default da coluna quando sabemos o nome.
   const { data: pedido } = await supabase
     .from('pedidos')
-    .insert({ criado_por: userId, status: 'aberta', unidade_id: perfil?.unidade_id ?? null })
+    .insert({
+      criado_por: userId,
+      status: 'aberta',
+      unidade_id: unidadeFinalId,
+      ...(unidadeFinalNome ? { nome_loja: unidadeFinalNome } : {}),
+    })
     .select('id')
     .single()
 
@@ -61,8 +91,7 @@ export async function criarPedido(
   // notificação/WhatsApp falhar.
   try {
     const criadorNome = perfil?.nome ?? 'Funcionário'
-    const unidadeNome =
-      (perfil?.unidade as unknown as { nome: string } | null)?.nome ?? null
+    const unidadeNome = unidadeFinalNome
     const resumoCat = resumoCategorias(itens.map((i) => i.categoria))
 
     const partes = [`Lista criada por ${criadorNome}`]
