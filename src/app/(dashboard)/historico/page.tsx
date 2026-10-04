@@ -5,6 +5,7 @@ import { formatDateTime } from '@/lib/utils'
 import { CATEGORIA_LABEL } from '@/lib/constants'
 import { History, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { LogoUnidade } from '@/components/shared/LogoUnidade'
+import { SeloEmergente } from '@/components/shared/SeloEmergente'
 export const dynamic = 'force-dynamic'
 
 const POR_PAGINA = 20
@@ -167,10 +168,13 @@ export default async function HistoricoPage({
                       {pedido.concluido_em ? formatDateTime(pedido.concluido_em) : '—'}
                     </p>
                   </div>
-                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-green-50 text-green-700 font-medium flex-shrink-0 flex items-center gap-1">
-                    <CheckCircle size={10} />
-                    Concluído
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {pedido.tipo === 'emergente' && <SeloEmergente />}
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-green-50 text-green-700 font-medium flex items-center gap-1">
+                      <CheckCircle size={10} />
+                      Concluído
+                    </span>
+                  </div>
                 </div>
 
                 {total > 0 && (

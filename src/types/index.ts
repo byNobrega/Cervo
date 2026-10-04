@@ -1,6 +1,9 @@
 export type Cargo = 'dono' | 'gerente' | 'funcionario'
 export type StatusUsuario = 'pendente' | 'aprovado' | 'rejeitado'
 export type StatusPedido = 'aberta' | 'concluida'
+// 'emergente' = item acabou e precisa ser reposto na hora (compra rápida do
+// gerente, para não perder venda). Ver migration 012_pedido_emergente.sql.
+export type TipoPedido = 'normal' | 'emergente'
 export type StatusItem = 'pendente' | 'comprado' | 'nao_tem'
 export type StatusSugestao = 'pendente' | 'aprovado' | 'rejeitado'
 export type CategoriaItem =
@@ -133,6 +136,7 @@ export interface Pedido {
   criado_por: string
   concluido_por: string | null
   status: StatusPedido
+  tipo: TipoPedido
   nome_loja: string
   observacao_geral: string | null
   unidade_id: string | null

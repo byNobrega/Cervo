@@ -2,9 +2,10 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Plus, ShoppingCart, Clock } from 'lucide-react'
-import { formatDateTime } from '@/lib/utils'
+import { formatDateTime, cn } from '@/lib/utils'
 import { resumoCategorias } from '@/lib/constants'
 import { LogoUnidade } from '@/components/shared/LogoUnidade'
+import { SeloEmergente } from '@/components/shared/SeloEmergente'
 export const dynamic = 'force-dynamic'
 
 export default async function PedidosPage() {
@@ -29,6 +30,14 @@ export default async function PedidosPage() {
     .eq('id', user.id)
     .single()
 
+  // Emergentes no topo: são compras que não podem esperar. Dentro de cada
+  // grupo vale a ordem que veio do banco (mais recentes primeiro) — o sort
+  // do JS é estável, então o empate preserva essa ordem.
+  const lista = [...(pedidos ?? [])].sort(
+    (a, b) =>
+      (a.tipo === 'emergente' ? 0 : 1) - (b.tipo === 'emergente' ? 0 : 1)
+  )
+
   return (
     <div className="max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -47,7 +56,7 @@ export default async function PedidosPage() {
         )}
       </div>
 
-      {(pedidos ?? []).length === 0 ? (
+      {lista.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <ShoppingCart size={40} className="mx-auto mb-3 opacity-30" />
           <p className="text-sm">Nenhum pedido em aberto</p>
@@ -60,7 +69,7 @@ export default async function PedidosPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {(pedidos ?? []).map((pedido) => {
+          {lista.map((pedido) => {
             const itens = pedido.itens as { id: string; status: string; categoria: string }[] ?? []
             const total = itens.length
             const comprados = itens.filter((i) => i.status === 'comprado').length
@@ -74,7 +83,12 @@ export default async function PedidosPage() {
               <Link
                 key={pedido.id}
                 href={`/pedidos/${pedido.id}`}
-                className="block bg-white border border-gray-100 rounded-xl p-4 hover:border-gray-200 hover:shadow-sm transition-all"
+                className={cn(
+                  'block rounded-xl p-4 border hover:shadow-sm transition-all',
+                  pedido.tipo === 'emergente'
+                    ? 'bg-red-50/50 border-red-200 hover:border-red-300'
+                    : 'bg-white border-gray-100 hover:border-gray-200'
+                )}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -91,10 +105,13 @@ export default async function PedidosPage() {
                       Por {(pedido.criador as { nome: string })?.nome} · {formatDateTime(pedido.created_at)}
                     </p>
                   </div>
-                  <span className="text-[11px] px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 font-medium flex-shrink-0 flex items-center gap-1">
-                    <Clock size={10} />
-                    Aberto
-                  </span>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {pedido.tipo === 'emergente' && <SeloEmergente />}
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 font-medium flex items-center gap-1">
+                      <Clock size={10} />
+                      Aberto
+                    </span>
+                  </div>
                 </div>
 
                 {total > 0 && (

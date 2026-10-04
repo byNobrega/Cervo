@@ -10,10 +10,11 @@ import { AbaPeliculas } from './AbaPeliculas'
 import { AbaMaterial } from './AbaMaterial'
 import { criarPedido, adicionarItensAoPedido } from '@/app/actions/pedidos'
 import { celebrar } from '@/lib/efeitos'
-import { Loader2, ShoppingCart, Plus, ChevronLeft, AlertTriangle, Store } from 'lucide-react'
+import { Loader2, ShoppingCart, Plus, ChevronLeft, AlertTriangle, Store, Siren, Package } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { TEMA_CATEGORIA, type CategoriaPedido } from '@/lib/constants'
 import { type OpcaoUnidade } from '@/lib/unidades'
+import { SeloEmergente } from '@/components/shared/SeloEmergente'
 import type {
   SubcategoriaAcessorio, Acessorio, SubcategoriaCapa, MarcaCelular,
   ModeloCelular, TipoPeliculaMaquina, TipoPeliculaTradicional, MaterialLoja
@@ -54,6 +55,9 @@ export function NovoPedidoWizard(props: Props) {
   const [modalFinalizar, setModalFinalizar] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
   const [unidadeId, setUnidadeId] = useState<string | null>(props.unidadePadraoId ?? null)
+  // Pedido emergente: item acabou e precisa ser reposto na hora. Ao adicionar
+  // itens a uma lista existente não se escolhe tipo — a lista já tem o dela.
+  const [emergente, setEmergente] = useState(false)
   const { itens, limpar } = usePedidoStore()
   const router = useRouter()
 
@@ -116,7 +120,7 @@ export function NovoPedidoWizard(props: Props) {
         limpar()
         router.push(`/pedidos/${props.pedidoExistenteId}`)
       } else {
-        const pedidoId = await criarPedido(props.userId, itens, unidadeId)
+        const pedidoId = await criarPedido(props.userId, itens, { unidadeId, emergente })
         celebrar() // confete + trompete ao criar a lista
         limpar()
         router.push(`/pedidos/${pedidoId}`)
@@ -184,6 +188,52 @@ export function NovoPedidoWizard(props: Props) {
           </div>
         )}
 
+        {!modoAdicionar && (
+          <div
+            className={cn(
+              'rounded-xl p-4 border transition-colors',
+              emergente ? 'bg-red-50 border-red-200' : 'bg-white border-gray-100'
+            )}
+          >
+            <p className="text-sm font-medium text-gray-900">Tipo do pedido</p>
+            <div className="grid grid-cols-2 gap-2 mt-2">
+              <button
+                type="button"
+                onClick={() => setEmergente(false)}
+                aria-pressed={!emergente}
+                className={cn(
+                  'flex items-center justify-center gap-2 py-2.5 rounded-lg border text-sm font-medium transition-colors',
+                  emergente
+                    ? 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                    : 'bg-gray-900 border-gray-900 text-white'
+                )}
+              >
+                <Package size={16} />
+                Normal
+              </button>
+              <button
+                type="button"
+                onClick={() => setEmergente(true)}
+                aria-pressed={emergente}
+                className={cn(
+                  'flex items-center justify-center gap-2 py-2.5 rounded-lg border text-sm font-medium transition-colors',
+                  emergente
+                    ? 'bg-red-600 border-red-600 text-white'
+                    : 'bg-white border-gray-200 text-gray-600 hover:bg-red-50 hover:text-red-600'
+                )}
+              >
+                <Siren size={16} />
+                Emergente
+              </button>
+            </div>
+            <p className={cn('text-xs mt-2', emergente ? 'text-red-600' : 'text-gray-500')}>
+              {emergente
+                ? 'Acabou e não dá para esperar: o gerente é avisado na hora e a lista fica no topo, em vermelho.'
+                : 'Reposição comum, entra na próxima compra do gerente.'}
+            </p>
+          </div>
+        )}
+
         {bannerDuplicados}
 
         <div className="grid grid-cols-2 gap-3">
@@ -228,6 +278,7 @@ export function NovoPedidoWizard(props: Props) {
           salvando={salvando}
           modoAdicionar={modoAdicionar}
           unidadeNome={nomeUnidadeEscolhida}
+          emergente={emergente}
           onCancelar={() => setModalFinalizar(false)}
           onConfirmar={salvarPedido}
         />
@@ -329,6 +380,7 @@ export function NovoPedidoWizard(props: Props) {
         salvando={salvando}
         modoAdicionar={modoAdicionar}
         unidadeNome={nomeUnidadeEscolhida}
+        emergente={emergente}
         onCancelar={() => setModalFinalizar(false)}
         onConfirmar={salvarPedido}
       />
@@ -341,6 +393,7 @@ function ModalFinalizar({
   salvando,
   modoAdicionar,
   unidadeNome,
+  emergente,
   onCancelar,
   onConfirmar,
 }: {
@@ -348,6 +401,7 @@ function ModalFinalizar({
   salvando: boolean
   modoAdicionar: boolean
   unidadeNome: string | null
+  emergente: boolean
   onCancelar: () => void
   onConfirmar: () => void
 }) {
@@ -356,13 +410,16 @@ function ModalFinalizar({
     <div className="fixed inset-0 bg-black/30 z-50 flex items-end sm:items-center justify-center p-4">
       <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-xl">
         <div className="p-5">
-          <h3 className="font-semibold text-gray-900 text-sm">
+          <h3 className="font-semibold text-gray-900 text-sm flex items-center justify-between gap-2">
             {modoAdicionar ? 'Adicionar estes itens?' : 'Finalizar pedido?'}
+            {!modoAdicionar && emergente && <SeloEmergente />}
           </h3>
           <p className="text-xs text-gray-500 mt-1">
             {modoAdicionar
               ? 'Os itens entram no pedido em aberto, marcados com a data de hoje.'
-              : 'Tem certeza que não quer adicionar mais itens? O pedido será enviado para o gerente comprar.'}
+              : emergente
+                ? 'O gerente vai ser avisado agora de que esta compra é urgente.'
+                : 'Tem certeza que não quer adicionar mais itens? O pedido será enviado para o gerente comprar.'}
           </p>
           {!modoAdicionar && unidadeNome && (
             <p className="flex items-center gap-1.5 text-xs font-medium text-gray-900 mt-2">

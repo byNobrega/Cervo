@@ -5,6 +5,7 @@ import { CATEGORIA_LABEL } from '@/lib/constants'
 import { formatDateTime } from '@/lib/utils'
 import { Package } from 'lucide-react'
 import { BotoesImpressao } from '@/components/pedidos/BotoesImpressao'
+import { SeloEmergente } from '@/components/shared/SeloEmergente'
 export const dynamic = 'force-dynamic'
 
 export default async function ImprimirPage({ params }: { params: { id: string } }) {
@@ -45,8 +46,9 @@ export default async function ImprimirPage({ params }: { params: { id: string } 
 
       {/* Cabeçalho */}
       <div className="border-b border-gray-200 pb-4 mb-6">
-        <h1 className="text-xl font-bold text-gray-900">
+        <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2 flex-wrap">
           {(pedido.unidade as { nome: string } | null)?.nome ?? pedido.nome_loja}
+          {pedido.tipo === 'emergente' && <SeloEmergente tamanho="md" />}
         </h1>
         <p className="text-sm text-gray-500 mt-0.5">
           Data: {formatDateTime(pedido.created_at)} ·

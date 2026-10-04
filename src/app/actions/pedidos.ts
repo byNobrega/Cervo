@@ -16,10 +16,18 @@ import { unidadesDisponiveis } from '@/lib/unidades'
 export async function criarPedido(
   userId: string,
   itens: ItemSelecionado[],
-  // Loja escolhida na tela. Quando ausente, a lista sai na unidade base do
-  // criador — o dono não tem unidade base, então para ele a tela sempre pede.
-  unidadeId?: string | null
+  opcoes?: {
+    // Loja escolhida na tela. Quando ausente, a lista sai na unidade base do
+    // criador — o dono não tem unidade base, então para ele a tela sempre pede.
+    unidadeId?: string | null
+    // Pedido emergente: item acabou e não dá para esperar a próxima compra.
+    // Muda o aviso que o gerente recebe e o destaque da lista na tela.
+    emergente?: boolean
+  }
 ): Promise<string> {
+  const unidadeId = opcoes?.unidadeId ?? null
+  const emergente = opcoes?.emergente === true
+
   const supabase = await createClient()
   const admin = await createAdminClient()
 
@@ -52,18 +60,26 @@ export async function criarPedido(
 
   // Cria o pedido. nome_loja é só o rótulo de reserva (usado quando a unidade
   // some), por isso só sobrescreve o default da coluna quando sabemos o nome.
-  const { data: pedido } = await supabase
+  const { data: pedido, error: erroPedido } = await supabase
     .from('pedidos')
     .insert({
       criado_por: userId,
       status: 'aberta',
       unidade_id: unidadeFinalId,
       ...(unidadeFinalNome ? { nome_loja: unidadeFinalNome } : {}),
+      // Só manda a coluna quando for emergente — 'normal' é o DEFAULT do
+      // banco, então criar lista comum continua funcionando mesmo que a
+      // migration 012 ainda não tenha sido rodada.
+      ...(emergente ? { tipo: 'emergente' } : {}),
     })
     .select('id')
     .single()
 
-  if (!pedido) throw new Error('Falha ao criar pedido')
+  // Repassa o motivo real do banco (RLS, constraint, coluna faltando) em vez
+  // de um "falha ao criar" genérico, que não dizia nada na tela.
+  if (erroPedido || !pedido) {
+    throw new Error(erroPedido?.message ?? 'Falha ao criar pedido')
+  }
 
   // Insere os itens
   const inserts = itens.map((item) => ({
@@ -87,6 +103,7 @@ export async function criarPedido(
 
   // Notifica gerentes e dono (app + WhatsApp) com uma mensagem rica:
   // "Lista criada por Fulano — Unidade. Contém: Acessórios + Capas. Ver: link"
+  // Quando é emergente, o aviso sai marcado para o gerente comprar na hora.
   // Envolvido em try/catch para nunca quebrar a criação do pedido se a
   // notificação/WhatsApp falhar.
   try {
@@ -94,15 +111,24 @@ export async function criarPedido(
     const unidadeNome = unidadeFinalNome
     const resumoCat = resumoCategorias(itens.map((i) => i.categoria))
 
-    const partes = [`Lista criada por ${criadorNome}`]
+    const partes = [
+      emergente
+        ? `PEDIDO EMERGENTE de ${criadorNome}`
+        : `Lista criada por ${criadorNome}`,
+    ]
     if (unidadeNome) partes.push(`— ${unidadeNome}`)
     const cabecalho = partes.join(' ')
 
     const destinatarios = await buscarIdsPorCargo(admin, ['gerente', 'dono'])
     const alvos = destinatarios.filter((id) => id !== userId)
 
-    await notificar(admin, alvos, 'pedido_criado', 'Lista criada', {
-      mensagem: `${cabecalho}.\nContém: ${resumoCat}.\nDê uma olhada nos pedidos.`,
+    const titulo = emergente ? '🚨 Pedido EMERGENTE' : 'Lista criada'
+    const chamada = emergente
+      ? 'Precisa comprar o quanto antes para não perder venda.'
+      : 'Dê uma olhada nos pedidos.'
+
+    await notificar(admin, alvos, 'pedido_criado', titulo, {
+      mensagem: `${cabecalho}.\nContém: ${resumoCat}.\n${chamada}`,
       link: `/pedidos/${pedido.id}`,
     })
   } catch (e) {

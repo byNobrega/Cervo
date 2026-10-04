@@ -8,6 +8,7 @@ import { Package, Smartphone, Printer, Check, X, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ReutilizarPedidoButton } from '@/components/historico/ReutilizarPedidoButton'
 import { LogoUnidade } from '@/components/shared/LogoUnidade'
+import { SeloEmergente } from '@/components/shared/SeloEmergente'
 import { CelebracaoCompra } from '@/components/pedidos/CelebracaoCompra'
 export const dynamic = 'force-dynamic'
 
@@ -64,9 +65,10 @@ export default async function HistoricoDetalhe({ params }: { params: { id: strin
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+          <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2 flex-wrap">
             <LogoUnidade nomeUnidade={(pedido.unidade as { nome: string } | null)?.nome} size={24} />
             {(pedido.unidade as { nome: string } | null)?.nome ?? pedido.nome_loja}
+            {pedido.tipo === 'emergente' && <SeloEmergente tamanho="md" />}
           </h2>
           <p className="text-xs text-gray-400 mt-0.5">
             Concluído em {pedido.concluido_em ? formatDateTime(pedido.concluido_em) : '—'}

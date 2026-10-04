@@ -12,6 +12,7 @@ import { Check, X, Printer, Loader2, Package, Smartphone, AlertCircle, ChevronRi
 import { cn } from '@/lib/utils'
 import { SubcategoriaAccordion } from './SubcategoriaAccordion'
 import { LogoUnidade } from '@/components/shared/LogoUnidade'
+import { SeloEmergente } from '@/components/shared/SeloEmergente'
 import { celebrar, somConfirmar, somClique } from '@/lib/efeitos'
 import { WhatsAppIcon } from '@/components/shared/WhatsAppIcon'
 
@@ -255,9 +256,10 @@ export function PedidoView({ pedido, cargo, userId }: Props) {
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+          <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2 flex-wrap">
             <LogoUnidade nomeUnidade={pedido.unidade?.nome} size={24} />
             {pedido.unidade?.nome ?? pedido.nome_loja}
+            {pedido.tipo === 'emergente' && <SeloEmergente tamanho="md" />}
           </h2>
           <p className="text-xs text-gray-400 mt-0.5">
             Criado por {pedido.criador?.nome} · {formatDateTime(pedido.created_at)}
