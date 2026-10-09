@@ -11,6 +11,14 @@ import { cadastroSchema, type CadastroFormData } from '@/lib/validations'
 import { type Unidade } from '@/types'
 import { Eye, EyeOff, Loader2, CheckCircle, MessageCircle, ChevronLeft } from 'lucide-react'
 
+// Confirmação do número por WhatsApp (código de 6 dígitos) ANTES de criar a
+// conta. DESLIGADA em 2026-10-09: o cadastro vai direto para a fila de
+// aprovação do administrador, para não travar quem está se cadastrando pela
+// primeira vez durante a apresentação do app nas lojas.
+// Para religar: volte para `true`. A etapa do código, as actions em
+// actions/verificacao.ts e a tabela verificacoes_whatsapp continuam prontas.
+const EXIGIR_CODIGO_WHATSAPP: boolean = false
+
 export function CadastroForm() {
   const router = useRouter()
   const [erro, setErro] = useState('')
@@ -41,12 +49,18 @@ export function CadastroForm() {
       .then(({ data }) => setUnidades(data ?? []))
   }, [supabase])
 
-  // ETAPA 1: valida o form e dispara o código de confirmação no WhatsApp.
-  // A conta só é criada depois que o código for confirmado (etapa 2).
+  // Valida o form e segue. Com a confirmação por WhatsApp desligada, cria a
+  // conta direto (fica pendente de aprovação). Com ela ligada, dispara o
+  // código e a conta só nasce na etapa 2.
   async function onSubmit(data: CadastroFormData) {
     setErro('')
     setEnviandoCodigo(true)
     try {
+      if (!EXIGIR_CODIGO_WHATSAPP) {
+        await criarConta(data)
+        return
+      }
+
       const r = await enviarCodigoVerificacao(data.whatsapp)
       if (!r.ok) {
         setErro(r.mensagem)
@@ -356,10 +370,12 @@ export function CadastroForm() {
         className="w-full bg-blue-600 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-colors"
       >
         {(isSubmitting || enviandoCodigo) && <Loader2 size={16} className="animate-spin" />}
-        Continuar
+        {EXIGIR_CODIGO_WHATSAPP ? 'Continuar' : 'Criar conta'}
       </button>
       <p className="text-[11px] text-gray-400 text-center">
-        Enviaremos um código no seu WhatsApp para confirmar o número.
+        {EXIGIR_CODIGO_WHATSAPP
+          ? 'Enviaremos um código no seu WhatsApp para confirmar o número.'
+          : 'Seu cadastro fica aguardando a liberação do administrador.'}
       </p>
     </form>
   )

@@ -310,6 +310,63 @@ export async function atualizarStatusItem(
   revalidatePath('/pedidos/[id]', 'page')
 }
 
+// Troca a LOJA de uma lista que ainda está em aberto (fase de compra).
+// Serve para consertar a escolha errada no momento de criar sem precisar
+// refazer a lista inteira.
+// Permissão: dono ou quem criou a lista — mesma regra de adicionar itens.
+export async function alterarUnidadePedido(
+  pedidoId: string,
+  userId: string,
+  unidadeId: string
+): Promise<{ ok: boolean; mensagem?: string }> {
+  const supabase = await createClient()
+  const admin = await createAdminClient()
+
+  const [{ data: pedido }, { data: perfil }] = await Promise.all([
+    supabase.from('pedidos').select('criado_por, status, unidade_id').eq('id', pedidoId).single(),
+    supabase.from('profiles').select('cargo, unidade_id').eq('id', userId).single(),
+  ])
+
+  if (!pedido) return { ok: false, mensagem: 'Pedido não encontrado.' }
+
+  // Depois de comprada a lista é histórico: não muda mais de loja.
+  if (pedido.status !== 'aberta') {
+    return { ok: false, mensagem: 'Esta lista já foi comprada e não pode trocar de loja.' }
+  }
+
+  const ehDono = perfil?.cargo === 'dono'
+  const ehCriador = pedido.criado_por === userId
+  if (!ehDono && !ehCriador) {
+    return { ok: false, mensagem: 'Só o dono ou quem criou a lista pode trocar a loja.' }
+  }
+
+  // A loja tem que ser uma das que a pessoa realmente acessa (as mesmas que
+  // minhas_unidades() devolve no RLS).
+  const permitidas = await unidadesDisponiveis(
+    supabase,
+    userId,
+    (perfil?.cargo as Cargo) ?? null,
+    perfil?.unidade_id ?? null
+  )
+  const escolhida = permitidas.find((u) => u.id === unidadeId)
+  if (!escolhida) return { ok: false, mensagem: 'Você não tem acesso a esta loja.' }
+
+  if (pedido.unidade_id === escolhida.id) return { ok: true }
+
+  // Via admin client: a policy pedidos_update do RLS só libera gerente/dono,
+  // e aqui o funcionário que CRIOU a lista também pode trocar (já validado).
+  const { error } = await admin
+    .from('pedidos')
+    .update({ unidade_id: escolhida.id, nome_loja: escolhida.nome })
+    .eq('id', pedidoId)
+
+  if (error) return { ok: false, mensagem: error.message }
+
+  revalidatePath('/pedidos')
+  revalidatePath(`/pedidos/${pedidoId}`)
+  return { ok: true }
+}
+
 export async function excluirPedido(pedidoId: string, userId: string) {
   const supabase = await createClient()
 

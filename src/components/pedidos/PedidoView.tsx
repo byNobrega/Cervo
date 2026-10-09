@@ -5,14 +5,15 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { type Pedido, type PedidoItem } from '@/types'
-import { atualizarStatusItem, finalizarPedido, excluirPedido, enviarListaWhatsApp, removerItemDoPedido, editarObservacaoItem } from '@/app/actions/pedidos'
+import { atualizarStatusItem, finalizarPedido, excluirPedido, enviarListaWhatsApp, removerItemDoPedido, editarObservacaoItem, alterarUnidadePedido } from '@/app/actions/pedidos'
 import { CATEGORIA_LABEL, TEMA_CATEGORIA, type CategoriaPedido } from '@/lib/constants'
 import { formatDateTime, formatDate, foiAdicionadoDepois } from '@/lib/utils'
-import { Check, X, Printer, Loader2, Package, Smartphone, AlertCircle, ChevronRight, Trash2, Plus, Pencil } from 'lucide-react'
+import { Check, X, Printer, Loader2, Package, Smartphone, AlertCircle, ChevronRight, Trash2, Plus, Pencil, Store } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SubcategoriaAccordion } from './SubcategoriaAccordion'
 import { LogoUnidade } from '@/components/shared/LogoUnidade'
 import { SeloEmergente } from '@/components/shared/SeloEmergente'
+import { type OpcaoUnidade } from '@/lib/unidades'
 import { celebrar, somConfirmar, somClique } from '@/lib/efeitos'
 import { WhatsAppIcon } from '@/components/shared/WhatsAppIcon'
 
@@ -29,6 +30,9 @@ interface Props {
   }
   cargo: string
   userId: string
+  // Lojas que ESTE usuário pode escolher ao trocar a loja da lista (dono vê
+  // todas; gerente as suas). Com uma só, o botão de trocar não aparece.
+  opcoesUnidade?: OpcaoUnidade[]
 }
 
 // Rótulo de fallback quando um item não tem subcategoria/tipo identificável.
@@ -102,13 +106,18 @@ function temaDaCategoria(cat: string): CategoriaPedido {
   return 'material'
 }
 
-export function PedidoView({ pedido, cargo, userId }: Props) {
+export function PedidoView({ pedido, cargo, userId, opcoesUnidade = [] }: Props) {
   const router = useRouter()
   const [modalAberto, setModalAberto] = useState(false)
   const [isPending] = useTransition()
   const [finalizando, setFinalizando] = useState(false)
   const [modalExcluir, setModalExcluir] = useState(false)
   const [excluindo, setExcluindo] = useState(false)
+  // Troca da loja da lista (consertar escolha errada na criação)
+  const [modalLoja, setModalLoja] = useState(false)
+  const [lojaEscolhida, setLojaEscolhida] = useState(pedido.unidade_id ?? '')
+  const [salvandoLoja, setSalvandoLoja] = useState(false)
+  const [erroLoja, setErroLoja] = useState<string | null>(null)
   // Envio da lista por WhatsApp (por categoria)
   const [enviandoCat, setEnviandoCat] = useState<string | null>(null)
   const [feedbackWhats, setFeedbackWhats] = useState<{ ok: boolean; msg: string } | null>(null)
@@ -140,6 +149,10 @@ export function PedidoView({ pedido, cargo, userId }: Props) {
   // Adicionar/remover/editar itens de um pedido em aberto: dono ou criador.
   const podeAdicionar = cargo === 'dono' || ehCriador
 
+  // Trocar a loja da lista: mesma regra (dono ou criador), e só faz sentido
+  // quando a pessoa tem mais de uma loja para escolher.
+  const podeTrocarLoja = (cargo === 'dono' || ehCriador) && opcoesUnidade.length > 1
+
   // Remove um item (otimista); em caso de falha, ressincroniza com o servidor.
   function handleRemoverItem(id: string) {
     setItens((lista) => lista.filter((i) => i.id !== id))
@@ -155,6 +168,23 @@ export function PedidoView({ pedido, cargo, userId }: Props) {
     editarObservacaoItem(id, userId, limpa)
       .then((r) => { if (!r.ok) router.refresh() })
       .catch(() => router.refresh())
+  }
+
+  async function confirmarTrocaLoja() {
+    if (!lojaEscolhida) return
+    setErroLoja(null)
+    setSalvandoLoja(true)
+    try {
+      const r = await alterarUnidadePedido(pedido.id, userId, lojaEscolhida)
+      if (!r.ok) {
+        setErroLoja(r.mensagem ?? 'Não foi possível trocar a loja.')
+        return
+      }
+      setModalLoja(false)
+      router.refresh()
+    } finally {
+      setSalvandoLoja(false)
+    }
   }
 
   async function confirmarExcluir() {
@@ -274,6 +304,20 @@ export function PedidoView({ pedido, cargo, userId }: Props) {
               <Plus size={14} />
               Adicionar itens
             </Link>
+          )}
+          {podeTrocarLoja && (
+            <button
+              type="button"
+              onClick={() => {
+                setLojaEscolhida(pedido.unidade_id ?? '')
+                setErroLoja(null)
+                setModalLoja(true)
+              }}
+              className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-blue-600 px-3 py-1.5 rounded-lg hover:bg-blue-50 transition-colors"
+            >
+              <Store size={14} />
+              Trocar loja
+            </button>
           )}
           <Link
             href={`/pedidos/${pedido.id}/imprimir`}
@@ -557,6 +601,61 @@ export function PedidoView({ pedido, cargo, userId }: Props) {
                 className="py-3 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
               >
                 Ignorar e concluir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de troca de loja */}
+      {modalLoja && (
+        <div className="fixed inset-0 bg-black/30 z-50 flex items-end sm:items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-xl">
+            <div className="p-5">
+              <div className="flex items-start gap-3 mb-3">
+                <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+                  <Store className="text-blue-500" size={18} />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 text-sm">Trocar a loja desta lista</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Para quando a lista foi criada na loja errada. Os itens continuam
+                    os mesmos — muda só para qual loja ela conta.
+                  </p>
+                </div>
+              </div>
+
+              <select
+                value={lojaEscolhida}
+                onChange={(e) => setLojaEscolhida(e.target.value)}
+                aria-label="Loja desta lista"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {opcoesUnidade.map((u) => (
+                  <option key={u.id} value={u.id}>{u.nome}</option>
+                ))}
+              </select>
+
+              {erroLoja && <p className="text-xs text-red-500 mt-2">{erroLoja}</p>}
+            </div>
+
+            <div className="grid grid-cols-2 gap-0 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => setModalLoja(false)}
+                disabled={salvandoLoja}
+                className="py-3 text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors border-r border-gray-100 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmarTrocaLoja}
+                disabled={salvandoLoja || !lojaEscolhida || lojaEscolhida === pedido.unidade_id}
+                className="flex items-center justify-center gap-2 py-3 text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {salvandoLoja && <Loader2 size={14} className="animate-spin" />}
+                Salvar loja
               </button>
             </div>
           </div>

@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { PedidoView } from '@/components/pedidos/PedidoView'
+import { unidadesDisponiveis } from '@/lib/unidades'
+import { type Cargo } from '@/types'
 export const dynamic = 'force-dynamic'
 
 export default async function PedidoPage({ params }: { params: { id: string } }) {
@@ -23,7 +25,7 @@ export default async function PedidoPage({ params }: { params: { id: string } })
       `)
       .eq('id', params.id)
       .single(),
-    supabase.from('profiles').select('cargo').eq('id', user.id).single(),
+    supabase.from('profiles').select('cargo, unidade_id').eq('id', user.id).single(),
   ])
 
   if (!pedido) redirect('/pedidos')
@@ -33,11 +35,21 @@ export default async function PedidoPage({ params }: { params: { id: string } })
     redirect(`/historico/${params.id}`)
   }
 
+  // Lojas que este usuário pode escolher caso a lista tenha sido criada na
+  // loja errada (o botão "Trocar loja" só aparece com mais de uma).
+  const opcoesUnidade = await unidadesDisponiveis(
+    supabase,
+    user.id,
+    (profile?.cargo as Cargo) ?? null,
+    profile?.unidade_id ?? null
+  )
+
   return (
     <PedidoView
       pedido={pedido}
       cargo={profile?.cargo ?? 'funcionario'}
       userId={user.id}
+      opcoesUnidade={opcoesUnidade}
     />
   )
 }
