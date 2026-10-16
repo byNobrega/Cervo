@@ -130,7 +130,12 @@ function SugestaoCard({
             <div className="flex gap-2 mt-3">
               <button
                 type="button"
-                onClick={() => startTransition(() => aprovarSugestao(sugestao.id))}
+                onClick={() =>
+                  startTransition(async () => {
+                    const { erro } = await aprovarSugestao(sugestao.id)
+                    if (erro) alert(`Não foi possível aprovar: ${erro}`)
+                  })
+                }
                 disabled={isPending}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-green-50 text-green-700 rounded-lg text-xs font-medium hover:bg-green-100 disabled:opacity-50 transition-colors"
               >

@@ -52,25 +52,39 @@ export async function criarSugestaoInline(data: SugestaoInlineData): Promise<str
   return sugestao.id
 }
 
-export async function aprovarSugestao(sugestaoId: string) {
+// Retorna { erro } quando não foi possível criar o item no catálogo.
+// Nesse caso a sugestão continua PENDENTE (não marca como aprovada à toa).
+export async function aprovarSugestao(sugestaoId: string): Promise<{ erro?: string }> {
   const supabase = await createClient()
   const admin = await createAdminClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return
+  if (!user) return { erro: 'Não autenticado' }
 
-  const { data: sugestao } = await supabase
+  // Só gerente/dono aprova. Depois disso as inserções usam o admin, porque o
+  // RLS de alguns catálogos (ex: modelos_celular) só libera INSERT para o dono.
+  const { data: perfil } = await supabase
+    .from('profiles')
+    .select('cargo')
+    .eq('id', user.id)
+    .single()
+  if (!['gerente', 'dono'].includes(perfil?.cargo ?? '')) {
+    return { erro: 'Sem permissão para aprovar sugestões' }
+  }
+
+  const { data: sugestao } = await admin
     .from('sugestoes')
     .select('*')
     .eq('id', sugestaoId)
     .single()
 
-  if (!sugestao) return
+  if (!sugestao) return { erro: 'Sugestão não encontrada' }
+  if (sugestao.status !== 'pendente') return {}
 
   let itemCriadoId: string | null = null
 
   if (sugestao.tipo === 'acessorio') {
-    const { data: novo } = await supabase
+    const { data: novo, error } = await admin
       .from('acessorios')
       .insert({
         nome: sugestao.nome,
@@ -81,27 +95,70 @@ export async function aprovarSugestao(sugestaoId: string) {
       .select('id')
       .single()
 
-    itemCriadoId = novo?.id ?? null
+    if (error || !novo) return { erro: `Falha ao criar o acessório: ${error?.message ?? ''}` }
+    itemCriadoId = novo.id
 
     // Atualiza itens de pedido que referenciam esta sugestão
-    if (itemCriadoId) {
-      await supabase
-        .from('pedido_itens')
-        .update({ acessorio_id: itemCriadoId, sugestao_id: null })
-        .eq('sugestao_id', sugestaoId)
-    }
+    await admin
+      .from('pedido_itens')
+      .update({ acessorio_id: itemCriadoId, sugestao_id: null })
+      .eq('sugestao_id', sugestaoId)
   } else if (sugestao.tipo === 'material') {
-    const { data: novo } = await supabase
+    // nome é UNIQUE: se já existe um material com esse nome, reaproveita.
+    const { data: existente } = await admin
       .from('material_loja')
-      .insert({ nome: sugestao.nome, foto_url: sugestao.foto_url })
       .select('id')
-      .single()
+      .ilike('nome', sugestao.nome)
+      .maybeSingle()
 
-    itemCriadoId = novo?.id ?? null
+    if (existente) {
+      await admin.from('material_loja').update({ ativo: true }).eq('id', existente.id)
+      itemCriadoId = existente.id
+    } else {
+      const { data: novo, error } = await admin
+        .from('material_loja')
+        .insert({ nome: sugestao.nome, foto_url: sugestao.foto_url })
+        .select('id')
+        .single()
+
+      if (error || !novo) return { erro: `Falha ao criar o material: ${error?.message ?? ''}` }
+      itemCriadoId = novo.id
+    }
+  } else if (sugestao.tipo === 'capa_subcategoria') {
+    // nome é UNIQUE: se já existe uma subcategoria com esse nome, reativa ela.
+    const { data: existente } = await admin
+      .from('subcategorias_capa')
+      .select('id')
+      .ilike('nome', sugestao.nome)
+      .maybeSingle()
+
+    if (existente) {
+      await admin.from('subcategorias_capa').update({ ativo: true }).eq('id', existente.id)
+      itemCriadoId = existente.id
+    } else {
+      const { data: novo, error } = await admin
+        .from('subcategorias_capa')
+        .insert({ nome: sugestao.nome, foto_url: sugestao.foto_url })
+        .select('id')
+        .single()
+
+      if (error || !novo) return { erro: `Falha ao criar a capa: ${error?.message ?? ''}` }
+      itemCriadoId = novo.id
+
+      // Sem marca vinculada a capa aparece como "Nenhuma marca associada" e não
+      // dá para pedir. A sugestão não informa a marca, então vincula todas;
+      // o gerente ajusta depois em Catálogo > Capas.
+      const { data: marcas } = await admin.from('marcas_celular').select('id')
+      if (marcas && marcas.length > 0) {
+        await admin
+          .from('subcategoria_capa_marcas')
+          .insert(marcas.map((m) => ({ subcategoria_id: novo.id, marca_id: m.id })))
+      }
+    }
   } else if (sugestao.tipo === 'modelo') {
     // Cria o modelo de celular; ele passa a aparecer em todas as películas.
     // Coloca no fim da ordenação da marca (maior ordem + 1).
-    const { data: ultimo } = await supabase
+    const { data: ultimo } = await admin
       .from('modelos_celular')
       .select('ordem')
       .order('ordem', { ascending: false })
@@ -109,7 +166,7 @@ export async function aprovarSugestao(sugestaoId: string) {
       .single()
     const proximaOrdem = (ultimo?.ordem ?? 0) + 1
 
-    const { data: novo } = await supabase
+    const { data: novo, error } = await admin
       .from('modelos_celular')
       .insert({
         nome: sugestao.nome,
@@ -121,10 +178,11 @@ export async function aprovarSugestao(sugestaoId: string) {
       .select('id')
       .single()
 
-    itemCriadoId = novo?.id ?? null
+    if (error || !novo) return { erro: `Falha ao criar o aparelho: ${error?.message ?? ''}` }
+    itemCriadoId = novo.id
   }
 
-  await supabase
+  await admin
     .from('sugestoes')
     .update({
       status: 'aprovado',
@@ -141,6 +199,9 @@ export async function aprovarSugestao(sugestaoId: string) {
   })
 
   revalidatePath('/sugestoes')
+  revalidatePath('/catalogo', 'layout')
+  revalidatePath('/pedidos', 'layout')
+  return {}
 }
 
 export async function rejeitarSugestao(sugestaoId: string) {
