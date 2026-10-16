@@ -7,7 +7,8 @@ const ROTAS_PUBLICAS = ['/login', '/cadastro']
 // Rotas restritas por cargo
 const ROTAS_DONO = ['/usuarios']
 // /sugestoes é acessível a todos (funcionário vê as suas; gerente/dono revisam).
-const ROTAS_GERENTE_DONO = ['/alertas', '/unidades', '/analises', '/modelos']
+// /unidades também: o funcionário vê só a loja dele (filtro na própria página).
+const ROTAS_GERENTE_DONO = ['/alertas', '/analises', '/modelos']
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl

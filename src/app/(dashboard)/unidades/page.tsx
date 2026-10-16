@@ -1,4 +1,5 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { unidadesVisiveis } from '@/lib/unidadesAcesso'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Store, ChevronRight } from 'lucide-react'
@@ -13,25 +14,39 @@ export default async function UnidadesPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('cargo')
+    .select('cargo, unidade_id')
     .eq('id', user.id)
     .single()
 
   const cargo = profile?.cargo ?? 'funcionario'
   const ehDono = cargo === 'dono'
 
-  // RLS já filtra: dono vê todas, gerente vê só as suas.
-  const { data: unidades } = await supabase
-    .from('unidades')
-    .select('*')
-    .order('nome')
+  // O RLS de unidades libera leitura a todos (o cadastro precisa listar as
+  // lojas), então o filtro é feito aqui: dono vê todas, gerente as que
+  // gerencia, funcionário só a dele.
+  const admin = await createAdminClient()
+  const visiveis = await unidadesVisiveis(admin, {
+    id: user.id,
+    cargo,
+    unidade_id: profile?.unidade_id ?? null,
+  })
+  let consulta = supabase.from('unidades').select('*').order('nome')
+  if (visiveis !== null) {
+    // lista vazia: nenhuma unidade (o .in() com [] não filtra no PostgREST)
+    consulta = consulta.in('id', visiveis.length ? visiveis : ['00000000-0000-0000-0000-000000000000'])
+  }
+  const { data: unidades } = await consulta
 
   return (
     <div className="max-w-3xl mx-auto">
       <div className="mb-6">
         <h2 className="text-xl font-semibold text-gray-900">Unidades</h2>
         <p className="text-gray-500 text-sm mt-0.5">
-          {ehDono ? 'Todas as lojas do sistema' : 'Lojas que você gerencia'}
+          {ehDono
+            ? 'Todas as lojas do sistema'
+            : cargo === 'gerente'
+              ? 'Lojas que você gerencia'
+              : 'Sua loja e seus colegas de trabalho'}
         </p>
       </div>
 

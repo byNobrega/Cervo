@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { unidadesDoUsuario } from '@/lib/unidadesAcesso'
 
 export type AtividadePedido = {
   id: string
@@ -63,8 +64,13 @@ export async function buscarPerfilPublico(
   if (!alvo) return { erro: 'Usuário não encontrado' }
 
   const ehDono = eu.cargo === 'dono'
-  if (eu.cargo === 'funcionario' && usuarioId !== user.id && alvo.unidade_id !== eu.unidade_id) {
-    return { erro: 'Este usuário é de outra loja' }
+  // Funcionário: só colegas da loja dele, incluindo o gerente que gerencia a
+  // loja (gerente_unidades), mesmo que a loja base do gerente seja outra.
+  if (eu.cargo === 'funcionario' && usuarioId !== user.id) {
+    const lojasDoAlvo = await unidadesDoUsuario(admin, alvo)
+    if (!eu.unidade_id || !lojasDoAlvo.has(eu.unidade_id)) {
+      return { erro: 'Este usuário é de outra loja' }
+    }
   }
 
   const [{ data: pedidos }, { data: sugestoes }] = await Promise.all([

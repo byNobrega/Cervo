@@ -53,7 +53,7 @@ const NAV_ITEMS: NavItem[] = [
     href: '/unidades',
     label: 'Unidades',
     icon: <Store size={18} />,
-    cargos: ['dono', 'gerente'],
+    cargos: ['dono', 'gerente', 'funcionario'],
   },
   {
     href: '/analises',

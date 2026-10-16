@@ -1,24 +1,36 @@
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import { UnidadeDashboard } from '@/components/unidades/UnidadeDashboard'
 import { LogoUnidade, temLogoUnidade } from '@/components/shared/LogoUnidade'
+import { unidadesVisiveis } from '@/lib/unidadesAcesso'
 export const dynamic = 'force-dynamic'
+
+type Membro = { id: string; nome: string; cargo: string; status: string; avatar_url: string | null }
 
 export default async function UnidadePage({ params }: { params: { id: string } }) {
   const supabase = await createClient()
+  const admin = await createAdminClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('cargo')
+    .select('cargo, unidade_id')
     .eq('id', user.id)
     .single()
   const cargo = profile?.cargo ?? 'funcionario'
 
-  // A unidade (RLS garante que o usuário só acessa as suas)
+  // Acesso: dono todas, gerente as que gerencia, funcionário só a dele.
+  // (O RLS de unidades libera leitura a todos, então a checagem é aqui.)
+  const visiveis = await unidadesVisiveis(admin, {
+    id: user.id,
+    cargo,
+    unidade_id: profile?.unidade_id ?? null,
+  })
+  if (visiveis !== null && !visiveis.includes(params.id)) redirect('/unidades')
+
   const { data: unidade } = await supabase
     .from('unidades')
     .select('*')
@@ -27,33 +39,67 @@ export default async function UnidadePage({ params }: { params: { id: string } }
 
   if (!unidade) redirect('/unidades')
 
-  // Funcionários/gerentes da unidade. Contato (e-mail/WhatsApp) não vem aqui:
-  // o cartão de perfil busca no servidor e só entrega para o dono.
-  const { data: funcionarios } = await supabase
-    .from('profiles')
-    .select('id, nome, cargo, status, avatar_url')
-    .eq('unidade_id', params.id)
-    .order('nome')
+  // Equipe: quem tem esta loja como base + gerentes ligados a ela.
+  // Lida com o admin porque o RLS de profiles não deixa o funcionário ver os
+  // colegas; por isso só nome, cargo, status e foto (contato só no cartão de
+  // perfil, e só para o dono).
+  const [{ data: daLoja }, { data: vinculosGerentes }] = await Promise.all([
+    admin.from('profiles').select('id, nome, cargo, status, avatar_url').eq('unidade_id', params.id),
+    admin.from('gerente_unidades').select('gerente_id').eq('unidade_id', params.id),
+  ])
+  const idsGerentesExtras = (vinculosGerentes ?? [])
+    .map((g) => g.gerente_id as string)
+    .filter((id) => !(daLoja ?? []).some((p) => p.id === id))
+  const { data: gerentesExtras } = idsGerentesExtras.length
+    ? await admin.from('profiles').select('id, nome, cargo, status, avatar_url').in('id', idsGerentesExtras)
+    : { data: [] as Membro[] }
 
-  // Pedidos da unidade (em aberto e concluídos recentes)
-  const { data: pedidos } = await supabase
+  const ordemCargo: Record<string, number> = { dono: 0, gerente: 1, funcionario: 2 }
+  const equipe = [...((daLoja ?? []) as Membro[]), ...((gerentesExtras ?? []) as Membro[])]
+    // Pendentes/recusados só aparecem para dono e gerente
+    .filter((m) => m.status === 'aprovado' || cargo !== 'funcionario')
+    .sort(
+      (a, b) =>
+        (ordemCargo[a.cargo] ?? 9) - (ordemCargo[b.cargo] ?? 9) || a.nome.localeCompare(b.nome)
+    )
+  const nomePorId = new Map(equipe.map((m) => [m.id, m.nome]))
+
+  // Pedidos da unidade (o RLS de pedidos já limita às lojas do usuário)
+  const { data: pedidosRaw } = await supabase
     .from('pedidos')
-    .select('id, status, created_at, criador:profiles!pedidos_criado_por_fkey(nome), itens:pedido_itens(id, status)')
+    .select('id, status, created_at, criado_por, itens:pedido_itens(id, status)')
     .eq('unidade_id', params.id)
     .order('created_at', { ascending: false })
     .limit(50)
 
-  // IDs dos membros da unidade, para filtrar sugestões pendentes feitas por eles
-  const idsMembros = (funcionarios ?? []).map((f) => f.id)
+  // Nome do criador vem da equipe (o join com profiles voltaria vazio para o
+  // funcionário); quem já saiu da loja cai no admin.
+  const idsSemNome = (pedidosRaw ?? []).map((p) => p.criado_por).filter((id) => !nomePorId.has(id))
+  if (idsSemNome.length) {
+    const { data } = await admin.from('profiles').select('id, nome').in('id', Array.from(new Set(idsSemNome)))
+    for (const p of data ?? []) nomePorId.set(p.id, p.nome)
+  }
+  const pedidos = (pedidosRaw ?? []).map((p) => ({
+    ...p,
+    criador: nomePorId.has(p.criado_por) ? { nome: nomePorId.get(p.criado_por)! } : null,
+  }))
+
+  // Sugestões pendentes feitas pelos membros da unidade
+  const idsMembros = equipe.map((f) => f.id)
   let sugestoes: { id: string; nome: string; tipo: string; sugeridor: { nome: string } | null }[] = []
   if (idsMembros.length > 0) {
     const { data } = await supabase
       .from('sugestoes')
-      .select('id, nome, tipo, sugeridor:profiles!sugestoes_sugerido_por_fkey(nome)')
+      .select('id, nome, tipo, sugerido_por')
       .eq('status', 'pendente')
       .in('sugerido_por', idsMembros)
       .order('created_at', { ascending: false })
-    sugestoes = (data as unknown as typeof sugestoes) ?? []
+    sugestoes = (data ?? []).map((s) => ({
+      id: s.id,
+      nome: s.nome,
+      tipo: s.tipo,
+      sugeridor: nomePorId.has(s.sugerido_por) ? { nome: nomePorId.get(s.sugerido_por)! } : null,
+    }))
   }
 
   return (
@@ -82,8 +128,8 @@ export default async function UnidadePage({ params }: { params: { id: string } }
         unidadeId={unidade.id}
         unidadeNome={unidade.nome}
         cargo={cargo}
-        funcionarios={funcionarios ?? []}
-        pedidos={(pedidos as never) ?? []}
+        funcionarios={equipe}
+        pedidos={pedidos}
         sugestoes={sugestoes}
       />
     </div>
