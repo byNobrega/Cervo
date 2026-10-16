@@ -11,6 +11,13 @@ Next.js 14 (App Router) + TypeScript + Tailwind + Supabase + Vercel.
   desenvolvedor: explique em português simples e confirme antes de ações que vão
   para produção.
 
+## Repositório público (decisão do autor)
+
+- Código aberto sob **GPL-3.0-or-later**, autor **@byNobrega** (ver `LICENSE` e README).
+  Manter o crédito @byNobrega.
+- Nunca versionar segredos (`.env.local` está no `.gitignore`) nem dados pessoais
+  reais (nomes completos, e-mails, telefones de funcionários) em código, seeds ou docs.
+
 ## Fluxo de deploy
 
 - Push na branch `main` = deploy automático na Vercel (produção). **Sempre confirmar

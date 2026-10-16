@@ -99,4 +99,22 @@ ficam protegidos no banco de dados, com regras de acesso por cargo e por loja.
 
 ---
 
-© 2026 @byNobrega. Todos os direitos reservados.
+## Licença
+
+Cervo — Copyright © 2026 **@byNobrega**
+
+Este programa é software livre: você pode redistribuí-lo e/ou modificá-lo sob os
+termos da **GNU General Public License v3** (ou, a seu critério, qualquer versão
+posterior), publicada pela Free Software Foundation — a mesma família de licença do
+kernel Linux.
+
+Em resumo: você pode estudar, usar, copiar e modificar o Cervo. Se distribuir uma
+versão modificada, ela também precisa ser de código aberto sob a GPL e manter os
+créditos ao autor original, **@byNobrega**.
+
+Este programa é distribuído na esperança de que seja útil, mas **sem nenhuma
+garantia**. Veja o texto completo da licença no arquivo [`LICENSE`](LICENSE).
+
+---
+
+© 2026 @byNobrega — feito para compartilhar.
