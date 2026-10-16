@@ -25,6 +25,16 @@ export function NotificationBell() {
     return () => document.removeEventListener('mousedown', fechar)
   }, [])
 
+  // Igual Instagram/Twitter: com o painel aberto por ~2,5s, tudo conta como
+  // visto. Fechar antes disso cancela. Se chegar notificação nova com o painel
+  // aberto, o contador reinicia para ela também ser vista.
+  useEffect(() => {
+    if (!aberto || naoLidas === 0) return
+    const timer = setTimeout(marcarTodasComoLidas, 2500)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aberto, naoLidas])
+
   return (
     <div className="relative" ref={ref}>
       <button
@@ -69,7 +79,7 @@ export function NotificationBell() {
                 <div
                   key={n.id}
                   className={cn(
-                    'px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors cursor-pointer',
+                    'px-4 py-3 border-b border-gray-50 hover:bg-gray-50 transition-colors duration-700 cursor-pointer',
                     !n.lida && 'bg-blue-50/50'
                   )}
                   onClick={() => {

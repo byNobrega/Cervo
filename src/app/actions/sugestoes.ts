@@ -204,33 +204,59 @@ export async function aprovarSugestao(sugestaoId: string): Promise<{ erro?: stri
   return {}
 }
 
-export async function rejeitarSugestao(sugestaoId: string) {
+export async function rejeitarSugestao(
+  sugestaoId: string,
+  motivo: string
+): Promise<{ erro?: string }> {
   const supabase = await createClient()
   const admin = await createAdminClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return
+  if (!user) return { erro: 'Não autenticado' }
 
-  const { data: sugestao } = await supabase
+  const { data: perfil } = await supabase
+    .from('profiles')
+    .select('cargo')
+    .eq('id', user.id)
+    .single()
+  if (!['gerente', 'dono'].includes(perfil?.cargo ?? '')) {
+    return { erro: 'Sem permissão para recusar sugestões' }
+  }
+
+  const motivoLimpo = motivo.trim()
+  if (!motivoLimpo) return { erro: 'Escreva o motivo da recusa' }
+
+  const { data: sugestao } = await admin
     .from('sugestoes')
-    .select('sugerido_por, nome')
+    .select('sugerido_por, nome, status')
     .eq('id', sugestaoId)
     .single()
 
-  await supabase
+  if (!sugestao) return { erro: 'Sugestão não encontrada' }
+  if (sugestao.status !== 'pendente') return {}
+
+  const revisao = {
+    status: 'rejeitado',
+    revisado_por: user.id,
+    revisado_em: new Date().toISOString(),
+  }
+  const { error } = await admin
     .from('sugestoes')
-    .update({
-      status: 'rejeitado',
-      revisado_por: user.id,
-      revisado_em: new Date().toISOString(),
-    })
+    .update({ ...revisao, motivo_recusa: motivoLimpo })
     .eq('id', sugestaoId)
 
-  if (sugestao) {
-    await notificar(admin, [sugestao.sugerido_por], 'sugestao_rejeitada', 'Sugestão recusada', {
-      mensagem: `"${sugestao.nome}" não foi aprovado pelo gerente.`,
-    })
+  // Se a migration 013 (coluna motivo_recusa) ainda não rodou, recusa mesmo
+  // assim; o motivo segue na notificação.
+  if (error) {
+    const { error: erro2 } = await admin.from('sugestoes').update(revisao).eq('id', sugestaoId)
+    if (erro2) return { erro: `Falha ao recusar: ${erro2.message}` }
   }
 
+  await notificar(admin, [sugestao.sugerido_por], 'sugestao_rejeitada', 'Sugestão recusada', {
+    mensagem: `"${sugestao.nome}" não foi aprovado. Motivo: ${motivoLimpo}`,
+    link: '/sugestoes',
+  })
+
   revalidatePath('/sugestoes')
+  return {}
 }

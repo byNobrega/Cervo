@@ -126,6 +126,7 @@ export interface Sugestao {
   revisado_por: string | null
   revisado_em: string | null
   item_criado_id: string | null
+  motivo_recusa?: string | null
   created_at: string
   sugeridor?: Profile
   subcategoria?: SubcategoriaAcessorio

@@ -114,6 +114,9 @@ function SugestaoCard({ sugestao }: { sugestao: Sugestao }) {
         )}
         {sugestao.marca && <p className="text-xs text-gray-400 truncate">{sugestao.marca}</p>}
         <p className="text-[11px] text-gray-300 mt-0.5">{formatDate(data, 'dd/MM/yyyy')}</p>
+        {sugestao.status === 'rejeitado' && sugestao.motivo_recusa && (
+          <p className="text-xs text-red-500 mt-1">Motivo: {sugestao.motivo_recusa}</p>
+        )}
       </div>
       <span
         className={cn(

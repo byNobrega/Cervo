@@ -1,6 +1,6 @@
 'use client'
 
-import { useTransition } from 'react'
+import { useState, useTransition } from 'react'
 import { FotoAmpliavel } from '@/components/shared/FotoAmpliavel'
 import { type Sugestao } from '@/types'
 import { aprovarSugestao, rejeitarSugestao } from '@/app/actions/sugestoes'
@@ -73,6 +73,16 @@ function SugestaoCard({
   pendente: boolean
 }) {
   const [isPending, startTransition] = useTransition()
+  const [recusando, setRecusando] = useState(false)
+  const [motivo, setMotivo] = useState('')
+
+  function confirmarRecusa() {
+    if (!motivo.trim()) return
+    startTransition(async () => {
+      const { erro } = await rejeitarSugestao(sugestao.id, motivo)
+      if (erro) alert(`Não foi possível recusar: ${erro}`)
+    })
+  }
 
   return (
     <div className="bg-white border border-gray-100 rounded-xl p-4">
@@ -108,6 +118,9 @@ function SugestaoCard({
               <p className="text-[11px] text-gray-300 mt-0.5">
                 {formatDate(sugestao.created_at, 'dd/MM/yyyy')}
               </p>
+              {sugestao.status === 'rejeitado' && sugestao.motivo_recusa && (
+                <p className="text-xs text-red-500 mt-1">Motivo: {sugestao.motivo_recusa}</p>
+              )}
             </div>
 
             {/* Status badge (revisadas) */}
@@ -126,7 +139,43 @@ function SugestaoCard({
           </div>
 
           {/* Botões de ação */}
-          {pendente && (
+          {pendente && recusando && (
+            <div className="mt-3 space-y-2">
+              <textarea
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+                placeholder="Motivo da recusa (o funcionário vai receber)"
+                aria-label="Motivo da recusa"
+                rows={2}
+                autoFocus
+                className="w-full px-3 py-2 border border-red-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-300"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={confirmarRecusa}
+                  disabled={isPending || !motivo.trim()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
+                >
+                  <X size={13} />
+                  Confirmar recusa
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecusando(false)
+                    setMotivo('')
+                  }}
+                  disabled={isPending}
+                  className="px-3 py-1.5 bg-gray-100 text-gray-600 rounded-lg text-xs hover:bg-gray-200 transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
+
+          {pendente && !recusando && (
             <div className="flex gap-2 mt-3">
               <button
                 type="button"
@@ -144,7 +193,7 @@ function SugestaoCard({
               </button>
               <button
                 type="button"
-                onClick={() => startTransition(() => rejeitarSugestao(sugestao.id))}
+                onClick={() => setRecusando(true)}
                 disabled={isPending}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100 disabled:opacity-50 transition-colors"
               >
