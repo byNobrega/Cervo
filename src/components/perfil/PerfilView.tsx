@@ -19,7 +19,7 @@ import { Pencil, Check, Loader2, LogOut, KeyRound, Clock } from 'lucide-react'
 type Opcao = { id: string; nome: string }
 type SolicPendente = { id: string; tipo: string; status: string; created_at: string }
 
-// Máscara de telefone BR: (21) 98777-5267
+// Máscara de telefone BR: (21) 99999-9999
 function aplicarMascara(valor: string): string {
   const d = valor.replace(/\D/g, '').slice(0, 11)
   if (d.length <= 2) return d
@@ -226,7 +226,7 @@ function NumeroEditavel({ whatsapp, onSalvar }: { whatsapp: string | null; onSal
           <input
             value={valor}
             onChange={(e) => setValor(aplicarMascara(e.target.value))}
-            placeholder="(21) 98777-5267"
+            placeholder="(21) 99999-9999"
             inputMode="numeric"
             aria-label="Número de WhatsApp"
             className="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"

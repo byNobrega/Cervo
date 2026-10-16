@@ -55,7 +55,7 @@ O arquivo `.env.local` está incluído no `.gitignore` e não deve ser enviado a
 
 ### Banco de dados
 
-As migrações encontram-se em `supabase/migrations/` e devem ser aplicadas no SQL Editor do Supabase, em ordem sequencial (`001` a `006`). É necessário criar também o bucket público `fotos-itens` no Storage.
+As migrações encontram-se em `supabase/migrations/` e devem ser aplicadas no SQL Editor do Supabase, em ordem sequencial (`001` a `014`). É necessário criar também o bucket público `fotos-itens` no Storage.
 
 ## Estrutura do projeto
 
@@ -70,6 +70,26 @@ src/
 └── store/              estado do pedido em criação
 supabase/migrations/    scripts de schema, RLS e funcionalidades
 ```
+
+## Por que o código é aberto
+
+O Cervo é público de propósito. Acredito na **democratização do conhecimento**:
+compartilhar o código não é abrir mão do trabalho, é devolver para a comunidade
+o mesmo tipo de aprendizado que me permitiu construí-lo.
+
+Este repositório não é pirataria nem cópia — é **compartilhamento de informação e de
+aprendizados**. Aqui estão as decisões, os erros e as correções de um sistema real,
+usado todos os dias por lojas reais, para que qualquer pessoa possa estudar, se
+inspirar e fazer o seu.
+
+A inspiração vem de quem mostrou que abrir o conhecimento muda o mundo:
+o **Linux**, cujo kernel Linus Torvalds abriu para todos melhorarem juntos; a
+**Wikipédia**, construída por voluntários e livre para qualquer pessoa; e a própria
+**Web**, que Tim Berners-Lee liberou sem cobrar patente para que a internet fosse de
+todos.
+
+Os dados das lojas e das pessoas que usam o Cervo **não** fazem parte do repositório:
+ficam protegidos no banco de dados, com regras de acesso por cargo e por loja.
 
 ## Roadmap
 
