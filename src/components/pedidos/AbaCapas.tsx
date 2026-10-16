@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 import { SugestaoInlineForm } from './SugestaoInlineForm'
 import { SubcategoriaAccordion } from './SubcategoriaAccordion'
 import { ordenarModeloNatural } from '@/lib/ordenarModelos'
-import { filtrarPorBusca } from '@/lib/busca'
+import { filtrarPorBusca, filtrarPorBuscaEstrita } from '@/lib/busca'
 
 interface Props {
   subcategorias: (SubcategoriaCapa & { marcas: { marca: MarcaCelular }[] })[]
@@ -20,6 +20,7 @@ interface Props {
 
 export function AbaCapas({ subcategorias, modelos, tema }: Props) {
   const [mostrarSugestao, setMostrarSugestao] = useState(false)
+  const [busca, setBusca] = useState('')
   const { itens, adicionarItem, removerItem } = usePedidoStore()
 
   // Nome padrão do item de capa (usado no fallback por nome, para pedidos
@@ -68,25 +69,78 @@ export function AbaCapas({ subcategorias, modelos, tema }: Props) {
     }
   }
 
+  // Busca: pelo tipo de capa ("silicone") mantém o fluxo marca → modelo;
+  // pelo aparelho ("iphone 13", ou "vidro iphone 13") lista direto os modelos
+  // que batem em cada subcategoria, sem precisar escolher a marca antes.
+  const termo = busca.trim()
+  const resultados = subcategorias
+    .map((sub) => {
+      if (!termo) return { sub, modelosBusca: null }
+      if (filtrarPorBusca([sub], termo, (s) => [s.nome]).length > 0) {
+        return { sub, modelosBusca: null }
+      }
+      const marcaIds = new Set(sub.marcas.map((m) => m.marca?.id).filter(Boolean))
+      const modelosBusca = filtrarPorBuscaEstrita(
+        modelos.filter((m) => marcaIds.has(m.marca_id)),
+        termo,
+        (m) => [sub.nome, m.marca?.nome, m.nome]
+      ).sort((a, b) => ordenarModeloNatural(a.nome, b.nome))
+      return { sub, modelosBusca }
+    })
+    // ao buscar, esconde as subcategorias sem resultado
+    .filter(({ modelosBusca }) => modelosBusca === null || modelosBusca.length > 0)
+
   return (
     <div className="space-y-2">
-      {subcategorias.map((sub) => {
+      {/* Busca inteligente (ignora hífen/acento/caixa) */}
+      <div className="relative">
+        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300" />
+        <input
+          type="text"
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          placeholder="Buscar capa ou aparelho (ex: silicone, iPhone 13)..."
+          className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      {termo && resultados.length === 0 && (
+        <p className="text-center py-6 text-sm text-gray-400">Nenhuma capa encontrada</p>
+      )}
+
+      {resultados.map(({ sub, modelosBusca }) => {
         const qtd = itens.filter((i) => i.subcapaId === sub.id).length
         return (
           <SubcategoriaAccordion
-            key={sub.id}
+            // key muda com a busca para o accordion abrir já com o resultado
+            key={`${sub.id}-${termo ? 'busca' : 'normal'}`}
             titulo={sub.nome}
             qtdSelecionada={qtd}
             tema={tema}
             fotoUrl={sub.foto_url}
+            defaultAberta={!!termo}
           >
-            <CapaSubcategoria
-              subcat={sub}
-              modelos={modelos}
-              tema={tema}
-              isSelected={isSelected}
-              toggle={toggle}
-            />
+            {modelosBusca ? (
+              <div className="space-y-1.5 pt-2">
+                {modelosBusca.map((modelo) => (
+                  <ModeloLinha
+                    key={modelo.id}
+                    rotulo={`${modelo.marca?.nome ?? ''} ${modelo.nome}`.trim()}
+                    selecionado={isSelected(sub.id, modelo.id)}
+                    tema={tema}
+                    onClick={() => toggle(sub, modelo)}
+                  />
+                ))}
+              </div>
+            ) : (
+              <CapaSubcategoria
+                subcat={sub}
+                modelos={modelos}
+                tema={tema}
+                isSelected={isSelected}
+                toggle={toggle}
+              />
+            )}
           </SubcategoriaAccordion>
         )
       })}
@@ -193,33 +247,52 @@ function CapaSubcategoria({
       {modelosFiltrados.length === 0 ? (
         <p className="text-sm text-gray-400 py-2 text-center">Nenhum modelo encontrado</p>
       ) : (
-        modelosFiltrados.map((modelo) => {
-          const sel = isSelected(subcat.id, modelo.id)
-          return (
-            <button
-              key={modelo.id}
-              type="button"
-              onClick={() => toggle(subcat, modelo)}
-              className={cn(
-                'w-full flex items-center justify-between px-3 py-2.5 rounded-lg border transition-all text-left',
-                sel ? tema.itemSelecionado : 'bg-white border-gray-100 hover:border-gray-200'
-              )}
-            >
-              <span className={cn('text-sm', sel ? cn('font-medium', tema.textoForte) : 'text-gray-900')}>
-                {modelo.nome}
-              </span>
-              <span
-                className={cn(
-                  'w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0',
-                  sel ? tema.marcado : 'border-gray-200'
-                )}
-              >
-                {sel && <Check size={12} className="text-white" />}
-              </span>
-            </button>
-          )
-        })
+        modelosFiltrados.map((modelo) => (
+          <ModeloLinha
+            key={modelo.id}
+            rotulo={modelo.nome}
+            selecionado={isSelected(subcat.id, modelo.id)}
+            tema={tema}
+            onClick={() => toggle(subcat, modelo)}
+          />
+        ))
       )}
     </div>
+  )
+}
+
+// Linha de um modelo de aparelho com checkbox (marca/desmarca a capa).
+function ModeloLinha({
+  rotulo,
+  selecionado: sel,
+  tema,
+  onClick,
+}: {
+  rotulo: string
+  selecionado: boolean
+  tema: TemaCategoria
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'w-full flex items-center justify-between px-3 py-2.5 rounded-lg border transition-all text-left',
+        sel ? tema.itemSelecionado : 'bg-white border-gray-100 hover:border-gray-200'
+      )}
+    >
+      <span className={cn('text-sm', sel ? cn('font-medium', tema.textoForte) : 'text-gray-900')}>
+        {rotulo}
+      </span>
+      <span
+        className={cn(
+          'w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0',
+          sel ? tema.marcado : 'border-gray-200'
+        )}
+      >
+        {sel && <Check size={12} className="text-white" />}
+      </span>
+    </button>
   )
 }

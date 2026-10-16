@@ -46,6 +46,23 @@ export function filtrarPorBusca<T>(
   })
 }
 
+// Variante estrita: TODAS as palavras do termo precisam aparecer (somando os
+// campos). Usada onde a tolerância a palavra faltando traz resultado errado,
+// ex: "vidro iphone 13" não pode trazer iPhone 15 nem capa que não é de vidro.
+export function filtrarPorBuscaEstrita<T>(
+  lista: T[],
+  termo: string,
+  campos: (item: T) => (string | null | undefined)[]
+): T[] {
+  const palavrasTermo = termo.trim().split(/\s+/).map(normalizar).filter(Boolean)
+  if (palavrasTermo.length === 0) return lista
+
+  return lista.filter((item) => {
+    const alvos = campos(item).filter((c): c is string => !!c).map(normalizar)
+    return palavrasTermo.every((p) => alvos.some((a) => a.includes(p)))
+  })
+}
+
 // Compatibilidade: verifica um único texto contra o termo (usa a mesma regra).
 export function correspondeBusca(texto: string, termo: string): boolean {
   return filtrarPorBusca([texto], termo, (t) => [t]).length > 0
