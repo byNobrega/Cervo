@@ -17,7 +17,7 @@ export default async function UsuariosPage() {
 
   if (profile?.cargo !== 'dono') redirect('/painel')
 
-  const [{ data: usuarios }, { data: unidades }, { data: solicitacoesRaw }] = await Promise.all([
+  const [{ data: usuarios }, { data: unidades }, { data: solicitacoesRaw }, { data: vinculos }] = await Promise.all([
     supabase
       .from('profiles')
       .select('*, unidade:unidades!profiles_unidade_id_fkey(id, nome)')
@@ -34,7 +34,14 @@ export default async function UsuariosPage() {
       `)
       .eq('status', 'pendente')
       .order('created_at', { ascending: false }),
+    // Lojas extras de cada usuário (quem trabalha em mais de uma loja)
+    supabase.from('gerente_unidades').select('gerente_id, unidade_id'),
   ])
+
+  const lojasExtras: Record<string, string[]> = {}
+  for (const v of vinculos ?? []) {
+    ;(lojasExtras[v.gerente_id] ??= []).push(v.unidade_id)
+  }
 
   const solicitacoes: SolicitacaoPerfil[] = (solicitacoesRaw ?? []).map((s: Record<string, unknown>) => ({
     id: s.id as string,
@@ -56,7 +63,7 @@ export default async function UsuariosPage() {
         </p>
       </div>
       <SolicitacoesPerfilList solicitacoes={solicitacoes} />
-      <UsuariosList usuarios={usuarios ?? []} unidades={unidades ?? []} />
+      <UsuariosList usuarios={usuarios ?? []} unidades={unidades ?? []} lojasExtras={lojasExtras} />
     </div>
   )
 }

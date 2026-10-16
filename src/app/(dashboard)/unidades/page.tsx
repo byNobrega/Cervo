@@ -46,7 +46,9 @@ export default async function UnidadesPage() {
             ? 'Todas as lojas do sistema'
             : cargo === 'gerente'
               ? 'Lojas que você gerencia'
-              : 'Sua loja e seus colegas de trabalho'}
+              : (unidades ?? []).length > 1
+                ? 'Suas lojas e seus colegas de trabalho'
+                : 'Sua loja e seus colegas de trabalho'}
         </p>
       </div>
 

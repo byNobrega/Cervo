@@ -20,9 +20,12 @@ type UnidadeOpcao = { id: string; nome: string }
 export function UsuariosList({
   usuarios,
   unidades,
+  lojasExtras,
 }: {
   usuarios: Profile[]
   unidades: UnidadeOpcao[]
+  // id do usuário → lojas extras (além da principal) em que ele trabalha
+  lojasExtras: Record<string, string[]>
 }) {
   const pendentes = usuarios.filter((u) => u.status === 'pendente')
   const aprovados = usuarios.filter((u) => u.status === 'aprovado')
@@ -37,7 +40,7 @@ export function UsuariosList({
           </h3>
           <div className="space-y-2">
             {pendentes.map((u) => (
-              <UsuarioCard key={u.id} usuario={u} unidades={unidades} />
+              <UsuarioCard key={u.id} usuario={u} unidades={unidades} extrasIniciais={lojasExtras[u.id] ?? []} />
             ))}
           </div>
         </section>
@@ -50,7 +53,7 @@ export function UsuariosList({
           </h3>
           <div className="space-y-2">
             {aprovados.map((u) => (
-              <UsuarioCard key={u.id} usuario={u} unidades={unidades} />
+              <UsuarioCard key={u.id} usuario={u} unidades={unidades} extrasIniciais={lojasExtras[u.id] ?? []} />
             ))}
           </div>
         </section>
@@ -63,7 +66,7 @@ export function UsuariosList({
           </h3>
           <div className="space-y-2">
             {rejeitados.map((u) => (
-              <UsuarioCard key={u.id} usuario={u} unidades={unidades} />
+              <UsuarioCard key={u.id} usuario={u} unidades={unidades} extrasIniciais={lojasExtras[u.id] ?? []} />
             ))}
           </div>
         </section>
@@ -78,7 +81,15 @@ export function UsuariosList({
   )
 }
 
-function UsuarioCard({ usuario, unidades }: { usuario: Profile; unidades: UnidadeOpcao[] }) {
+function UsuarioCard({
+  usuario,
+  unidades,
+  extrasIniciais,
+}: {
+  usuario: Profile
+  unidades: UnidadeOpcao[]
+  extrasIniciais: string[]
+}) {
   const [isPending, startTransition] = useTransition()
   const [editando, setEditando] = useState(false)
   const [modalExcluir, setModalExcluir] = useState(false)
@@ -90,8 +101,20 @@ function UsuarioCard({ usuario, unidades }: { usuario: Profile; unidades: Unidad
     usuario.cargo === 'gerente' ? 'gerente' : 'funcionario'
   )
   const [unidadeId, setUnidadeId] = useState(usuario.unidade_id ?? '')
+  // Lojas extras (sem contar a principal, que já está no select acima)
+  const [extras, setExtras] = useState<string[]>(
+    extrasIniciais.filter((id) => id !== usuario.unidade_id)
+  )
 
   const nomeUnidade = usuario.unidade?.nome
+  const nomesExtras = extrasIniciais
+    .filter((id) => id !== usuario.unidade_id)
+    .map((id) => unidades.find((u) => u.id === id)?.nome)
+    .filter(Boolean)
+
+  function alternarExtra(id: string) {
+    setExtras((atual) => (atual.includes(id) ? atual.filter((x) => x !== id) : [...atual, id]))
+  }
 
   function salvarEdicao() {
     startTransition(async () => {
@@ -99,6 +122,7 @@ function UsuarioCard({ usuario, unidades }: { usuario: Profile; unidades: Unidad
         nome: nome.trim() || usuario.nome,
         cargo,
         unidade_id: unidadeId || null,
+        lojasExtras: extras.filter((id) => id !== unidadeId),
       })
       setEditando(false)
     })
@@ -135,7 +159,10 @@ function UsuarioCard({ usuario, unidades }: { usuario: Profile; unidades: Unidad
             {usuario.email} · {CARGOS_LABEL[usuario.cargo]}
           </p>
           {nomeUnidade && (
-            <p className="text-xs text-gray-500">🏪 {nomeUnidade}</p>
+            <p className="text-xs text-gray-500">
+              🏪 {nomeUnidade}
+              {nomesExtras.length > 0 && <span className="text-gray-400"> + {nomesExtras.join(', ')}</span>}
+            </p>
           )}
           {usuario.whatsapp && (
             <p className="text-xs text-gray-400">WhatsApp: {usuario.whatsapp}</p>
@@ -219,11 +246,11 @@ function UsuarioCard({ usuario, unidades }: { usuario: Profile; unidades: Unidad
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Unidade</label>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Loja principal</label>
               <select
                 value={unidadeId}
                 onChange={(e) => setUnidadeId(e.target.value)}
-                aria-label="Unidade do usuário"
+                aria-label="Loja principal do usuário"
                 className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
               >
                 <option value="">Sem unidade</option>
@@ -233,6 +260,39 @@ function UsuarioCard({ usuario, unidades }: { usuario: Profile; unidades: Unidad
               </select>
             </div>
           </div>
+          {/* Outras lojas: libera ver a equipe e abrir lista nelas também */}
+          {unidades.filter((u) => u.id !== unidadeId).length > 0 && (
+            <div>
+              <p className="block text-xs font-medium text-gray-600 mb-1">Também trabalha em</p>
+              <div className="flex flex-wrap gap-2">
+                {unidades
+                  .filter((u) => u.id !== unidadeId)
+                  .map((u) => {
+                    const marcada = extras.includes(u.id)
+                    return (
+                      <button
+                        key={u.id}
+                        type="button"
+                        onClick={() => alternarExtra(u.id)}
+                        aria-pressed={marcada}
+                        className={cn(
+                          'flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs transition-colors',
+                          marcada
+                            ? 'bg-blue-50 border-blue-200 text-blue-700 font-medium'
+                            : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                        )}
+                      >
+                        {marcada && <Check size={12} />}
+                        {u.nome}
+                      </button>
+                    )
+                  })}
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1">
+                Ele vai poder abrir lista e ver a equipe dessas lojas também.
+              </p>
+            </div>
+          )}
           <div className="flex gap-2">
             <button
               type="button"

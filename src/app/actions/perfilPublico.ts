@@ -64,11 +64,14 @@ export async function buscarPerfilPublico(
   if (!alvo) return { erro: 'Usuário não encontrado' }
 
   const ehDono = eu.cargo === 'dono'
-  // Funcionário: só colegas da loja dele, incluindo o gerente que gerencia a
-  // loja (gerente_unidades), mesmo que a loja base do gerente seja outra.
+  // Funcionário: só quem divide pelo menos uma loja com ele (contando as lojas
+  // extras de cada um, ex: o gerente que gerencia a loja dele).
   if (eu.cargo === 'funcionario' && usuarioId !== user.id) {
-    const lojasDoAlvo = await unidadesDoUsuario(admin, alvo)
-    if (!eu.unidade_id || !lojasDoAlvo.has(eu.unidade_id)) {
+    const [minhas, dele] = await Promise.all([
+      unidadesDoUsuario(admin, { id: user.id, unidade_id: eu.unidade_id }),
+      unidadesDoUsuario(admin, alvo),
+    ])
+    if (!Array.from(minhas).some((id) => dele.has(id))) {
       return { erro: 'Este usuário é de outra loja' }
     }
   }
