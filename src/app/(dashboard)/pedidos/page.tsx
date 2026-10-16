@@ -6,6 +6,8 @@ import { formatDateTime, cn } from '@/lib/utils'
 import { resumoCategorias } from '@/lib/constants'
 import { LogoUnidade } from '@/components/shared/LogoUnidade'
 import { SeloEmergente } from '@/components/shared/SeloEmergente'
+import { UsuarioClicavel } from '@/components/shared/UsuarioClicavel'
+import { buscarCriadores } from '@/lib/criadores'
 export const dynamic = 'force-dynamic'
 
 export default async function PedidosPage() {
@@ -37,6 +39,7 @@ export default async function PedidosPage() {
     (a, b) =>
       (a.tipo === 'emergente' ? 0 : 1) - (b.tipo === 'emergente' ? 0 : 1)
   )
+  const criadores = await buscarCriadores(lista.map((p) => p.criado_por))
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -78,6 +81,7 @@ export default async function PedidosPage() {
 
             const nomeUnidade = (pedido.unidade as { nome: string } | null)?.nome ?? pedido.nome_loja
             const resumo = resumoCategorias(itens.map((i) => i.categoria))
+            const criador = criadores.get(pedido.criado_por)
 
             return (
               <Link
@@ -102,7 +106,13 @@ export default async function PedidosPage() {
                       </span>
                     </p>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      Por {(pedido.criador as { nome: string })?.nome} · {formatDateTime(pedido.created_at)}
+                      Por{' '}
+                      {criador ? (
+                        <UsuarioClicavel id={criador.id} nome={criador.nome} avatarUrl={criador.avatar_url} />
+                      ) : (
+                        '—'
+                      )}{' '}
+                      · {formatDateTime(pedido.created_at)}
                     </p>
                   </div>
                   <div className="flex items-center gap-1.5 flex-shrink-0">

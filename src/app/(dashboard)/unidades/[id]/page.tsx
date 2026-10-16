@@ -27,10 +27,11 @@ export default async function UnidadePage({ params }: { params: { id: string } }
 
   if (!unidade) redirect('/unidades')
 
-  // Funcionários/gerentes da unidade
+  // Funcionários/gerentes da unidade. Contato (e-mail/WhatsApp) não vem aqui:
+  // o cartão de perfil busca no servidor e só entrega para o dono.
   const { data: funcionarios } = await supabase
     .from('profiles')
-    .select('id, nome, cargo, whatsapp, status')
+    .select('id, nome, cargo, status, avatar_url')
     .eq('unidade_id', params.id)
     .order('nome')
 
@@ -79,6 +80,7 @@ export default async function UnidadePage({ params }: { params: { id: string } }
 
       <UnidadeDashboard
         unidadeId={unidade.id}
+        unidadeNome={unidade.nome}
         cargo={cargo}
         funcionarios={funcionarios ?? []}
         pedidos={(pedidos as never) ?? []}

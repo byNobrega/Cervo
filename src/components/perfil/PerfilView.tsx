@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
 import { type Profile } from '@/types'
+import { Avatar } from '@/components/shared/Avatar'
+import { MinhaAtividade } from './MinhaAtividade'
 import { CARGOS_LABEL } from '@/lib/constants'
 import { PhotoUpload } from '@/components/shared/PhotoUpload'
 import {
@@ -82,6 +83,9 @@ export function PerfilView({
         </div>
       </div>
 
+      {/* ====== Últimas listas e sugestões ====== */}
+      <MinhaAtividade usuarioId={profile.id} />
+
       {/* ====== Segurança ====== */}
       <div className="bg-white border border-gray-100 rounded-xl p-5 space-y-3">
         <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Segurança</h3>
@@ -136,11 +140,7 @@ function AvatarEditavel({
       className="relative w-16 h-16 rounded-full overflow-hidden bg-blue-50 flex items-center justify-center flex-shrink-0 group"
       title="Editar foto"
     >
-      {profile.avatar_url ? (
-        <Image src={profile.avatar_url} alt={profile.nome} fill sizes="80px" className="object-cover" />
-      ) : (
-        <span className="text-blue-700 font-semibold text-xl">{profile.nome.charAt(0).toUpperCase()}</span>
-      )}
+      <Avatar url={profile.avatar_url} nome={profile.nome} tamanho={64} />
       <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
         <Pencil size={16} className="text-white" />
       </span>

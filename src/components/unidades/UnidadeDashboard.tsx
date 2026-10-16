@@ -6,8 +6,16 @@ import { cn } from '@/lib/utils'
 import { formatDateTime } from '@/lib/utils'
 import { CARGOS_LABEL } from '@/lib/constants'
 import { ShoppingCart, Users, Lightbulb, Clock, CheckCircle } from 'lucide-react'
+import { Avatar } from '@/components/shared/Avatar'
+import { PerfilUsuarioModal } from '@/components/shared/PerfilUsuarioModal'
 
-type Funcionario = { id: string; nome: string; cargo: string; whatsapp: string | null; status: string }
+type Funcionario = {
+  id: string
+  nome: string
+  cargo: string
+  status: string
+  avatar_url: string | null
+}
 type PedidoResumo = {
   id: string
   status: string
@@ -21,14 +29,16 @@ type Aba = 'pedidos' | 'funcionarios' | 'sugestoes'
 
 interface Props {
   unidadeId: string
+  unidadeNome: string
   cargo: string
   funcionarios: Funcionario[]
   pedidos: PedidoResumo[]
   sugestoes: SugestaoResumo[]
 }
 
-export function UnidadeDashboard({ funcionarios, pedidos, sugestoes }: Props) {
+export function UnidadeDashboard({ unidadeNome, funcionarios, pedidos, sugestoes }: Props) {
   const [aba, setAba] = useState<Aba>('pedidos')
+  const [perfilAberto, setPerfilAberto] = useState<Funcionario | null>(null)
 
   const abas: { id: Aba; label: string; icon: React.ReactNode; count: number }[] = [
     { id: 'pedidos', label: 'Pedidos', icon: <ShoppingCart size={15} />, count: pedidos.filter((p) => p.status === 'aberta').length },
@@ -103,23 +113,33 @@ export function UnidadeDashboard({ funcionarios, pedidos, sugestoes }: Props) {
             <p className="text-center py-10 text-sm text-gray-400">Nenhum funcionário nesta unidade</p>
           ) : (
             funcionarios.map((f) => (
-              <div key={f.id} className="flex items-center justify-between bg-white border border-gray-100 rounded-xl p-3.5">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">{f.nome}</p>
-                  <p className="text-xs text-gray-400">
-                    {CARGOS_LABEL[f.cargo] ?? f.cargo}
-                    {f.whatsapp && ` · ${f.whatsapp}`}
-                  </p>
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => setPerfilAberto(f)}
+                className="w-full flex items-center gap-3 bg-white border border-gray-100 rounded-xl p-3.5 text-left hover:border-gray-200 transition-colors"
+              >
+                <Avatar url={f.avatar_url} nome={f.nome} tamanho={40} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{f.nome}</p>
+                  <p className="text-xs text-gray-400">{CARGOS_LABEL[f.cargo] ?? f.cargo}</p>
                 </div>
                 {f.status !== 'aprovado' && (
                   <span className="text-[11px] px-2 py-0.5 rounded-full bg-yellow-50 text-yellow-700 font-medium">
                     {f.status}
                   </span>
                 )}
-              </div>
+              </button>
             ))
           )}
         </div>
+      )}
+
+      {perfilAberto && (
+        <PerfilUsuarioModal
+          inicial={{ ...perfilAberto, unidade_nome: unidadeNome }}
+          onFechar={() => setPerfilAberto(null)}
+        />
       )}
 
       {/* Sugestões */}

@@ -12,6 +12,8 @@ import {
 } from '@/app/actions/usuarios'
 import { Check, X, Clock, UserCheck, UserX, Pencil, Trash2, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Avatar } from '@/components/shared/Avatar'
+import { PerfilUsuarioModal } from '@/components/shared/PerfilUsuarioModal'
 
 type UnidadeOpcao = { id: string; nome: string }
 
@@ -80,6 +82,7 @@ function UsuarioCard({ usuario, unidades }: { usuario: Profile; unidades: Unidad
   const [isPending, startTransition] = useTransition()
   const [editando, setEditando] = useState(false)
   const [modalExcluir, setModalExcluir] = useState(false)
+  const [perfilAberto, setPerfilAberto] = useState(false)
 
   // form de edição
   const [nome, setNome] = useState(usuario.nome)
@@ -111,12 +114,23 @@ function UsuarioCard({ usuario, unidades }: { usuario: Profile; unidades: Unidad
   return (
     <div className="bg-white border border-gray-100 rounded-xl p-4">
       <div className="flex items-center gap-4">
-        <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-700 font-semibold text-sm flex-shrink-0">
-          {usuario.nome.charAt(0).toUpperCase()}
-        </div>
+        <button
+          type="button"
+          onClick={() => setPerfilAberto(true)}
+          title="Ver perfil"
+          className="rounded-full flex-shrink-0"
+        >
+          <Avatar url={usuario.avatar_url} nome={usuario.nome} tamanho={40} />
+        </button>
 
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-gray-900 text-sm">{usuario.nome}</p>
+          <button
+            type="button"
+            onClick={() => setPerfilAberto(true)}
+            className="font-medium text-gray-900 text-sm hover:underline text-left"
+          >
+            {usuario.nome}
+          </button>
           <p className="text-xs text-gray-400">
             {usuario.email} · {CARGOS_LABEL[usuario.cargo]}
           </p>
@@ -238,6 +252,13 @@ function UsuarioCard({ usuario, unidades }: { usuario: Profile; unidades: Unidad
             </button>
           </div>
         </div>
+      )}
+
+      {perfilAberto && (
+        <PerfilUsuarioModal
+          inicial={{ ...usuario, unidade_nome: nomeUnidade }}
+          onFechar={() => setPerfilAberto(false)}
+        />
       )}
 
       {/* Modal de confirmação de exclusão */}

@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { cn } from '@/lib/utils'
+import { Avatar } from '@/components/shared/Avatar'
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -192,13 +193,7 @@ export function Sidebar({ aberta, onFechar }: SidebarProps) {
             )}
             title="Meu Perfil"
           >
-            <div className="relative w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-sm font-medium overflow-hidden flex-shrink-0">
-              {profile?.avatar_url ? (
-                <Image src={profile.avatar_url} alt={profile?.nome ?? ''} fill sizes="40px" className="object-cover" />
-              ) : (
-                profile?.nome?.charAt(0).toUpperCase() ?? '?'
-              )}
-            </div>
+            <Avatar url={profile?.avatar_url} nome={profile?.nome ?? ''} tamanho={36} />
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 truncate">{profile?.nome}</p>
               <p className="text-xs text-gray-400 flex items-center gap-1">

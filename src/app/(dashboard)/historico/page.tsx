@@ -6,6 +6,8 @@ import { CATEGORIA_LABEL } from '@/lib/constants'
 import { History, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react'
 import { LogoUnidade } from '@/components/shared/LogoUnidade'
 import { SeloEmergente } from '@/components/shared/SeloEmergente'
+import { UsuarioClicavel } from '@/components/shared/UsuarioClicavel'
+import { buscarCriadores } from '@/lib/criadores'
 export const dynamic = 'force-dynamic'
 
 const POR_PAGINA = 20
@@ -55,6 +57,7 @@ export default async function HistoricoPage({
   }
 
   const { data: pedidos, count } = await query
+  const criadores = await buscarCriadores((pedidos ?? []).map((p) => p.criado_por))
 
   const total = count ?? 0
   const totalPaginas = Math.max(1, Math.ceil(total / POR_PAGINA))
@@ -150,6 +153,7 @@ export default async function HistoricoPage({
             const total = itens.length
             const comprados = itens.filter((i) => i.status === 'comprado').length
             const naoTem = itens.filter((i) => i.status === 'nao_tem').length
+            const criador = criadores.get(pedido.criado_por)
 
             return (
               <Link
@@ -164,7 +168,13 @@ export default async function HistoricoPage({
                       {(pedido.unidade as { nome: string } | null)?.nome ?? pedido.nome_loja}
                     </p>
                     <p className="text-xs text-gray-400 mt-0.5">
-                      Criado por {(pedido.criador as { nome: string })?.nome} ·{' '}
+                      Criado por{' '}
+                      {criador ? (
+                        <UsuarioClicavel id={criador.id} nome={criador.nome} avatarUrl={criador.avatar_url} />
+                      ) : (
+                        '—'
+                      )}{' '}
+                      ·{' '}
                       {pedido.concluido_em ? formatDateTime(pedido.concluido_em) : '—'}
                     </p>
                   </div>
