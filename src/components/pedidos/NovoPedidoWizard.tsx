@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils'
 import { TEMA_CATEGORIA, type CategoriaPedido } from '@/lib/constants'
 import { type OpcaoUnidade } from '@/lib/unidades'
 import { SeloEmergente } from '@/components/shared/SeloEmergente'
+import { lerRascunho, salvarRascunho, apagarRascunho } from '@/lib/rascunhoPedido'
+import { formatDateTime } from '@/lib/utils'
 import type {
   SubcategoriaAcessorio, Acessorio, SubcategoriaCapa, MarcaCelular,
   ModeloCelular, TipoPeliculaMaquina, TipoPeliculaTradicional, MaterialLoja
@@ -60,6 +62,11 @@ export function NovoPedidoWizard(props: Props) {
   const [emergente, setEmergente] = useState(false)
   const { itens, limpar } = usePedidoStore()
   const router = useRouter()
+  // Só começa a salvar o rascunho depois de decidir se restaura um salvo,
+  // senão o store ainda vazio apagaria o rascunho antes de ser lido.
+  const [rascunhoPronto, setRascunhoPronto] = useState(false)
+  const [rascunhoRestaurado, setRascunhoRestaurado] = useState<string | null>(null)
+  const [confirmandoDescarte, setConfirmandoDescarte] = useState(false)
 
   // Seletor de loja: só ao criar uma lista nova (ao adicionar itens, a lista já
   // tem a sua loja) e só quando há mais de uma opção para o usuário.
@@ -69,10 +76,49 @@ export function NovoPedidoWizard(props: Props) {
   const nomeUnidadeEscolhida = opcoesUnidade.find((u) => u.id === unidadeId)?.nome ?? null
 
   // No modo "adicionar", começa com a seleção vazia (só os itens novos).
+  // No Novo Pedido, restaura o rascunho salvo no aparelho (a lista que a
+  // pessoa estava montando antes de sair da tela ou de o navegador recarregar).
   useEffect(() => {
-    if (modoAdicionar) limpar()
+    const store = usePedidoStore.getState()
+    if (modoAdicionar) {
+      limpar()
+      store.setOrigem('adicionar')
+      return
+    }
+    const salvo = lerRascunho(props.userId)
+    if (store.origem === 'reutilizar' && store.itens.length > 0) {
+      // Veio de "Reutilizar lista": esses itens viram o novo rascunho.
+    } else if (salvo) {
+      store.restaurar(salvo.itens)
+      if (salvo.unidadeId && opcoesUnidade.some((u) => u.id === salvo.unidadeId)) {
+        setUnidadeId(salvo.unidadeId)
+      }
+      setEmergente(salvo.emergente)
+      setRascunhoRestaurado(salvo.atualizadoEm)
+    } else if (store.origem === 'adicionar') {
+      // Sobras de um "adicionar itens" abandonado não entram na lista nova.
+      limpar()
+    }
+    store.setOrigem('novo')
+    setRascunhoPronto(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Salva o rascunho a cada mudança (só no Novo Pedido). Lista vazia = sem rascunho.
+  useEffect(() => {
+    if (modoAdicionar || !rascunhoPronto) return
+    if (itens.length > 0) salvarRascunho(props.userId, { itens, unidadeId, emergente })
+    else apagarRascunho(props.userId)
+  }, [itens, unidadeId, emergente, rascunhoPronto, modoAdicionar, props.userId])
+
+  function descartarRascunho() {
+    limpar()
+    apagarRascunho(props.userId)
+    setEmergente(false)
+    setUnidadeId(props.unidadePadraoId ?? null)
+    setRascunhoRestaurado(null)
+    setConfirmandoDescarte(false)
+  }
 
   // Itens que o usuário selecionou mas que JÁ estão no pedido (modo adicionar).
   const setExistentes = useMemo(
@@ -122,6 +168,7 @@ export function NovoPedidoWizard(props: Props) {
       } else {
         const pedidoId = await criarPedido(props.userId, itens, { unidadeId, emergente })
         celebrar() // confete + trompete ao criar a lista
+        apagarRascunho(props.userId)
         limpar()
         router.push(`/pedidos/${pedidoId}`)
       }
@@ -155,6 +202,55 @@ export function NovoPedidoWizard(props: Props) {
             ? 'Escolha os itens que faltam para adicionar a este pedido.'
             : 'Escolha uma categoria para começar. Você poderá adicionar outras depois.'}
         </p>
+
+        {/* Rascunho: a lista fica salva no aparelho enquanto é montada */}
+        {!modoAdicionar && itens.length > 0 && (
+          <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-sm">
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-blue-800">
+                {rascunhoRestaurado ? (
+                  <>
+                    <strong>Lista em andamento recuperada</strong> ({itens.length}{' '}
+                    {itens.length === 1 ? 'item' : 'itens'}, salva em {formatDateTime(rascunhoRestaurado)}).
+                  </>
+                ) : (
+                  <>
+                    <strong>Rascunho salvo automaticamente</strong> ({itens.length}{' '}
+                    {itens.length === 1 ? 'item' : 'itens'}). Pode sair da tela que a lista não se perde.
+                  </>
+                )}
+              </p>
+              {!confirmandoDescarte && (
+                <button
+                  type="button"
+                  onClick={() => setConfirmandoDescarte(true)}
+                  className="text-xs text-blue-600 hover:text-red-600 font-medium flex-shrink-0"
+                >
+                  Descartar
+                </button>
+              )}
+            </div>
+            {confirmandoDescarte && (
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-xs text-red-600">Apagar a lista em andamento?</span>
+                <button
+                  type="button"
+                  onClick={descartarRascunho}
+                  className="px-2.5 py-1 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700"
+                >
+                  Sim, apagar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmandoDescarte(false)}
+                  className="px-2.5 py-1 bg-white text-gray-600 border border-gray-200 rounded-lg text-xs hover:bg-gray-50"
+                >
+                  Não
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {mostraSeletorLoja && (
           <div className="bg-white border border-gray-100 rounded-xl p-4">

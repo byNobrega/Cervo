@@ -8,6 +8,7 @@ import { LogoUnidade } from '@/components/shared/LogoUnidade'
 import { SeloEmergente } from '@/components/shared/SeloEmergente'
 import { UsuarioClicavel } from '@/components/shared/UsuarioClicavel'
 import { buscarCriadores } from '@/lib/criadores'
+import { AvisoRascunho } from '@/components/pedidos/AvisoRascunho'
 export const dynamic = 'force-dynamic'
 
 export default async function PedidosPage() {
@@ -58,6 +59,8 @@ export default async function PedidosPage() {
           </Link>
         )}
       </div>
+
+      <AvisoRascunho userId={user.id} />
 
       {lista.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
