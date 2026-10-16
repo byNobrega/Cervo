@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import Image from 'next/image'
+import { FotoAmpliavel } from '@/components/shared/FotoAmpliavel'
 import Link from 'next/link'
 import { formatDateTime, formatDate, foiAdicionadoDepois } from '@/lib/utils'
 import { CATEGORIA_LABEL } from '@/lib/constants'
@@ -115,7 +115,7 @@ export default async function HistoricoDetalhe({ params }: { params: { id: strin
                     <td className="p-3 w-12">
                       <div className="relative w-9 h-9 rounded-lg overflow-hidden bg-gray-50">
                         {item.foto_url_snapshot ? (
-                          <Image src={item.foto_url_snapshot} alt={item.nome_snapshot} fill sizes="150px" className="object-cover" />
+                          <FotoAmpliavel src={item.foto_url_snapshot} alt={item.nome_snapshot} sizes="150px" />
                         ) : (
                           <IconeFallback size={14} className="absolute inset-0 m-auto text-gray-200" />
                         )}

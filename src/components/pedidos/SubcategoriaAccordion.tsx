@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
-import Image from 'next/image'
+import { FotoAmpliavel } from '@/components/shared/FotoAmpliavel'
 import { ChevronRight, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { type TemaCategoria } from '@/lib/constants'
@@ -66,7 +66,7 @@ export function SubcategoriaAccordion({
         />
         {fotoUrl && (
           <div className="relative w-9 h-9 rounded-md overflow-hidden bg-gray-50 flex-shrink-0">
-            <Image src={fotoUrl} alt={titulo} fill sizes="40px" className="object-cover" />
+            <FotoAmpliavel src={fotoUrl} alt={titulo} sizes="40px" />
           </div>
         )}
         <span

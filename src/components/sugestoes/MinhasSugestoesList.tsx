@@ -1,4 +1,4 @@
-import Image from 'next/image'
+import { FotoAmpliavel } from '@/components/shared/FotoAmpliavel'
 import { type Sugestao } from '@/types'
 import { formatDate } from '@/lib/utils'
 import { Lightbulb, Clock, Check, X } from 'lucide-react'
@@ -102,7 +102,7 @@ function SugestaoCard({ sugestao }: { sugestao: Sugestao }) {
     <div className="flex items-center gap-3 bg-white border border-gray-100 rounded-lg p-2.5">
       <div className="relative w-12 h-12 rounded-md overflow-hidden bg-gray-50 flex-shrink-0">
         {sugestao.foto_url ? (
-          <Image src={sugestao.foto_url} alt={sugestao.nome} fill sizes="60px" className="object-cover" />
+          <FotoAmpliavel src={sugestao.foto_url} alt={sugestao.nome} sizes="60px" />
         ) : (
           <Lightbulb size={18} className="absolute inset-0 m-auto text-gray-200" />
         )}

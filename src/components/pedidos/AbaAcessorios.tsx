@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import Image from 'next/image'
+import { FotoAmpliavel } from '@/components/shared/FotoAmpliavel'
 import { usePedidoStore } from '@/store/pedidoStore'
 import { type SubcategoriaAcessorio, type Acessorio } from '@/types'
 import { type TemaCategoria } from '@/lib/constants'
@@ -185,7 +185,7 @@ function ItemAcessorio({
       <div className="flex items-center gap-3 p-3">
         <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-gray-50 flex-shrink-0">
           {acessorio.foto_url ? (
-            <Image src={acessorio.foto_url} alt={acessorio.nome} fill sizes="150px" className="object-cover" />
+            <FotoAmpliavel src={acessorio.foto_url} alt={acessorio.nome} sizes="150px" />
           ) : (
             <Package size={16} className="absolute inset-0 m-auto text-gray-200" />
           )}

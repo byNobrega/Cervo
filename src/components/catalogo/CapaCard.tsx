@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
+import { FotoAmpliavel } from '@/components/shared/FotoAmpliavel'
 import { Layers, Pencil, Trash2, Loader2 } from 'lucide-react'
 import { editarSubcategoriaCapa, excluirSubcategoriaCapa } from '@/app/actions/catalogo'
 import { ModalExcluir } from './ModalExcluir'
@@ -65,7 +65,7 @@ export function CapaCard({
       <div className="flex items-center gap-3 p-2">
         <div className="relative w-11 h-11 rounded-md overflow-hidden bg-gray-50 flex-shrink-0">
           {fotoUrl ? (
-            <Image src={fotoUrl} alt={nome} fill sizes="60px" className="object-cover" />
+            <FotoAmpliavel src={fotoUrl} alt={nome} sizes="60px" />
           ) : (
             <Layers size={18} className="absolute inset-0 m-auto text-gray-200" />
           )}

@@ -7,6 +7,7 @@ import { type TemaCategoria } from '@/lib/constants'
 import { Check, ChevronLeft, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { SubcategoriaAccordion } from './SubcategoriaAccordion'
+import { FotoAmpliavel } from '@/components/shared/FotoAmpliavel'
 import { NovaSugestaoForm } from '@/components/sugestoes/NovaSugestaoForm'
 import { ordenarModeloNatural } from '@/lib/ordenarModelos'
 import { filtrarPorBusca } from '@/lib/busca'
@@ -104,8 +105,15 @@ export function AbaPeliculas({ maquina, tradicionais, modelos, tema }: Props) {
                   sel ? tema.itemSelecionado : 'bg-white border-gray-100 hover:border-gray-200'
                 )}
               >
-                <span className={cn('text-sm', sel ? cn('font-medium', tema.textoForte) : 'text-gray-900')}>
-                  {p.nome}
+                <span className="flex items-center gap-3 min-w-0">
+                  {p.foto_url && (
+                    <span className="relative w-9 h-9 rounded-md overflow-hidden bg-gray-50 flex-shrink-0">
+                      <FotoAmpliavel src={p.foto_url} alt={p.nome} sizes="40px" />
+                    </span>
+                  )}
+                  <span className={cn('text-sm', sel ? cn('font-medium', tema.textoForte) : 'text-gray-900')}>
+                    {p.nome}
+                  </span>
                 </span>
                 <span
                   className={cn(
@@ -130,6 +138,7 @@ export function AbaPeliculas({ maquina, tradicionais, modelos, tema }: Props) {
             titulo={tipo.nome}
             qtdSelecionada={qtd}
             tema={tema}
+            fotoUrl={tipo.foto_url}
           >
             <PeliculaTradicional
               tipo={tipo}

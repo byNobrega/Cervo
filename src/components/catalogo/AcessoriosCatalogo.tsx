@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import Image from 'next/image'
+import { FotoAmpliavel } from '@/components/shared/FotoAmpliavel'
 import { type SubcategoriaAcessorio, type Acessorio } from '@/types'
 import { acessorioSchema, type AcessorioFormData } from '@/lib/validations'
 import { adicionarAcessorio, editarAcessorio, excluirAcessorio } from '@/app/actions/catalogo'
@@ -305,7 +305,7 @@ function AcessorioCard({
       <div className="flex items-center gap-3 p-2">
         <div className="relative w-11 h-11 rounded-md overflow-hidden bg-gray-50 flex-shrink-0">
           {item.foto_url ? (
-            <Image src={item.foto_url} alt={item.nome} fill sizes="60px" className="object-cover" />
+            <FotoAmpliavel src={item.foto_url} alt={item.nome} sizes="60px" />
           ) : (
             <Package size={18} className="absolute inset-0 m-auto text-gray-200" />
           )}

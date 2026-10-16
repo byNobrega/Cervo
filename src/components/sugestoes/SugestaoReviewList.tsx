@@ -1,7 +1,7 @@
 'use client'
 
 import { useTransition } from 'react'
-import Image from 'next/image'
+import { FotoAmpliavel } from '@/components/shared/FotoAmpliavel'
 import { type Sugestao } from '@/types'
 import { aprovarSugestao, rejeitarSugestao } from '@/app/actions/sugestoes'
 import { Check, X, Package, Clock } from 'lucide-react'
@@ -80,7 +80,7 @@ function SugestaoCard({
         {/* Foto */}
         <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-gray-50 flex-shrink-0">
           {sugestao.foto_url ? (
-            <Image src={sugestao.foto_url} alt={sugestao.nome} fill sizes="150px" className="object-cover" />
+            <FotoAmpliavel src={sugestao.foto_url} alt={sugestao.nome} sizes="150px" />
           ) : (
             <Package size={20} className="absolute inset-0 m-auto text-gray-200" />
           )}

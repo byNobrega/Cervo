@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
+import { FotoAmpliavel } from '@/components/shared/FotoAmpliavel'
 import Link from 'next/link'
 import { type Pedido, type PedidoItem } from '@/types'
 import { atualizarStatusItem, finalizarPedido, excluirPedido, enviarListaWhatsApp, removerItemDoPedido, editarObservacaoItem, alterarUnidadePedido } from '@/app/actions/pedidos'
@@ -754,20 +754,15 @@ function ItemRow({
         <div className="relative w-11 h-11 rounded-lg overflow-hidden bg-gray-50 flex-shrink-0">
           {item.foto_url_snapshot ? (
             <>
-              <Image
-                src={item.foto_url_snapshot}
-                alt={item.nome_snapshot}
-                fill
-                sizes="150px"
-                className="object-cover"
-              />
+              <FotoAmpliavel src={item.foto_url_snapshot} alt={item.nome_snapshot} sizes="150px" />
+              {/* pointer-events-none: o selo não bloqueia o clique de ampliar a foto */}
               {isComprado && (
-                <div className="absolute inset-0 bg-green-500/40 flex items-center justify-center">
+                <div className="absolute inset-0 bg-green-500/40 flex items-center justify-center pointer-events-none">
                   <Check size={14} className="text-white" />
                 </div>
               )}
               {isNaoTem && (
-                <div className="absolute inset-0 bg-red-500/40 flex items-center justify-center">
+                <div className="absolute inset-0 bg-red-500/40 flex items-center justify-center pointer-events-none">
                   <X size={14} className="text-white" />
                 </div>
               )}

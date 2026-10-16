@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
+import { FotoAmpliavel } from '@/components/shared/FotoAmpliavel'
 import { Shield, Pencil, Trash2, Loader2 } from 'lucide-react'
 import { editarTipoPelicula, excluirTipoPelicula } from '@/app/actions/catalogo'
 import { ModalExcluir } from './ModalExcluir'
@@ -50,7 +50,7 @@ export function TipoPeliculaCard({
       <div className="flex items-center gap-2">
         {fotoUrl !== undefined && fotoUrl !== null ? (
           <div className="relative w-9 h-9 rounded-md overflow-hidden bg-gray-50 flex-shrink-0">
-            <Image src={fotoUrl} alt={nome} fill sizes="40px" className="object-cover" />
+            <FotoAmpliavel src={fotoUrl} alt={nome} sizes="40px" />
           </div>
         ) : tabela === 'maquina' ? (
           <Shield size={15} className="text-gray-300 flex-shrink-0" />
